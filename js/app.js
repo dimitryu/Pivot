@@ -1,72 +1,34 @@
 import { store } from "./store.js";
-import { SEED_PLANS } from "./seed.js";
+import { SEED_DRILLS } from "./seed.js";
+import { randomPlan, smartPlan, planFromSaved, swapDrill, snapOf, stageMinutes, stageList, emptyStages } from "./planner.js";
+import { renderStats } from "./stats.js";
+import {
+  $, esc, COLORS, ICON, STAGES, STAGE, FOCUS, DAY_SHORT, courtSVG, jersey, avatar, todayStr, fmtDate, fmtShort, monthLabel,
+  lastMonths, daysLabel, scheduleOf, firstName, waLink, debounce, toast, dateInput, openSheet, closeSheet, resizeImage
+} from "./lib.js";
 
-const $ = (s, r = document) => r.querySelector(s);
 const app = $("#app");
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const COLORS = ["#1f57e0", "#ff6b2c", "#1fa971", "#7a4dfd", "#e8438b", "#f2a900"];
-const VERSION = "1.0.0";
+const VERSION = "2.1.0";
 
-/* ---------- אייקונים ---------- */
-const ICON = {
-  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
-  groups: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c2.4 0 4 1.7 4 4.5"/></svg>',
-  plans: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM8.5 11h7M8.5 15h5"/></svg>',
-  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>',
-  check: '<svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
-  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
-  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'
-};
-
-/* קווי מגרש כדור יד: קו שער, קו 6 מטר (רצוף) וקו 9 מטר (מקווקו) */
-const courtSVG = (flip = false) => `<svg class="court" viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" fill="none" stroke="#ffc93c" stroke-width="2.2" aria-hidden="true"${flip ? ' style="transform:scaleY(-1)"' : ""}>
-  <path d="M90 160 A110 110 0 0 1 310 160"/>
-  <path d="M20 160 A180 180 0 0 1 380 160" stroke-dasharray="10 9"/>
-  <path d="M170 160v-10h60v10" stroke-width="4"/><path d="M0 160h400"/></svg>`;
-
-const jersey = (num, color) => `<svg class="jersey" viewBox="0 0 48 46" aria-hidden="true">
-  <path d="M15 4 L5 10 L9 20 L13 18 V42 H35 V18 L39 20 L43 10 L33 4 C31 8 27 9.5 24 9.5 C21 9.5 17 8 15 4Z" fill="${color}"/>
-  <path d="M15 4 C17 8 21 9.5 24 9.5 C27 9.5 31 8 33 4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="2"/>
-  <text x="24" y="33" text-anchor="middle" font-size="14" fill="#fff" font-family="Secular One, sans-serif">${esc(num || "")}</text></svg>`;
-
-/* ---------- עזרים ---------- */
-const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-const fmtDate = (s) => (s ? new Intl.DateTimeFormat("he-IL", { weekday: "long", day: "numeric", month: "long" }).format(new Date(s + "T12:00:00")) : "");
-const fmtShort = (s) => (s ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric" }).format(new Date(s + "T12:00:00")) : "");
-const firstName = (u) => (u?.displayName || "").split(" ")[0] || "מאמן";
-const waLink = (phone) => { const d = String(phone || "").replace(/\D/g, ""); return d ? "https://wa.me/" + (d.startsWith("0") ? "972" + d.slice(1) : d) : ""; };
+/* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
 const playersOf = (gid) => store.all("players").filter((p) => p.groupId === gid).sort((a, b) => (a.name || "").localeCompare(b.name || "", "he"));
 const sessionsOf = (gid) => store.all("sessions").filter((s) => s.groupId === gid).sort((a, b) => b.date.localeCompare(a.date));
 const presentCount = (s) => Object.values(s.attendance || {}).filter(Boolean).length;
+const drillsAll = () => store.all("drills");
+const starsOf = (pid) => store.all("awards").filter((a) => a.playerId === pid).length;
 function rate(pid, gid) {
   const ss = sessionsOf(gid); if (!ss.length) return null;
   return Math.round((ss.filter((s) => s.attendance?.[pid]).length / ss.length) * 100);
 }
-function toast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add("hidden"), 2200);
-}
-function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
-/* תיקון ידוע בדפדפן אנדרואיד: שדה תאריך לא תמיד יורה change, לכן מאזינים לשלושה אירועים */
-function dateInput(el, cb) {
-  const h = debounce(() => el.value && cb(el.value), 120);
-  ["change", "input", "blur"].forEach((ev) => el.addEventListener(ev, h));
+// תוכנית של אימון: תמונת המצב שנשמרה, ואם אין (אימון ישן) אז לפי התוכנית שנבחרה
+function planOf(s) {
+  if (s.plan) return s.plan;
+  const legacy = store.get("plans", s.planId);
+  return legacy?.stages ? planFromSaved(legacy, drillsAll()) : null;
 }
 
-/* ---------- חלון תחתון ---------- */
-const sheet = $("#sheet");
-function openSheet(html, mount) {
-  $("#sheetBody").innerHTML = html;
-  if (!sheet.open) sheet.showModal();
-  mount?.($("#sheetBody"));
-}
-const closeSheet = () => sheet.open && sheet.close();
-sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
-
-/* ---------- מסגרת כללית ---------- */
+/* ---------- מסגרת ---------- */
 let live = true;
 function hero({ title, sub = "", back = "", compact = false, tabs = "" }) {
   return `<header class="hero ${compact ? "compact" : ""}">${courtSVG()}<div class="wrap">
@@ -78,183 +40,282 @@ function nav(active) {
   return `<nav class="nav">${item("groups", "קבוצות", "#/")}${item("plans", "תוכניות", "#/plans")}${item("settings", "הגדרות", "#/settings")}</nav>`;
 }
 const page = (heroHtml, body, active) => { app.innerHTML = `${heroHtml}<main class="wrap">${body}</main>${nav(active)}`; };
+const tabsBar = (items, cur) => `<div class="tabs" role="tablist">${items.map(([k, l, h]) => `<button role="tab" aria-selected="${cur === k}" data-go="${h}">${l}</button>`).join("")}</div>`;
 
-/* ---------- מסכים ---------- */
+/* ---------- התחברות ---------- */
 function viewLogin() {
   live = false;
-  const cloud = store.isCloud;
-  app.innerHTML = `<div class="login">${courtSVG()}${courtSVG(true).replace('class="court"', 'class="court" style="transform:scaleY(-1)"')}
+  app.innerHTML = `<div class="login">${courtSVG()}${courtSVG(true)}
     <div class="ball-big"></div><h1>פיבוט</h1><p>קבוצות, נוכחות ותוכניות אימון לכדור יד ילדים</p>
-    ${cloud
+    ${store.isCloud
       ? `<button class="btn" data-act="signin">כניסה עם Google</button>`
-      : `<button class="btn" data-act="signin">התחלה במצב מקומי</button>
-         <p style="font-size:15px;opacity:.85">עדיין לא חיברנו ענן, ולכן הנתונים נשמרים רק במכשיר הזה.</p>`}
-    </div>`;
+      : `<button class="btn" data-act="signin">התחלה במצב מקומי</button><p style="font-size:15px;opacity:.85">עדיין לא חיברנו ענן, ולכן הנתונים נשמרים רק במכשיר הזה.</p>`}</div>`;
 }
 
+/* ---------- בית ---------- */
 function viewHome() {
   live = true;
   const groups = store.all("groups").slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   const cards = groups.map((g) => {
     const n = playersOf(g.id).length, last = sessionsOf(g.id)[0];
     return `<button class="group-card" style="--gc:${groupColor(g)}" data-go="#/g/${g.id}">
-      <span class="arc"></span><h3>${esc(g.name)}</h3>
-      <span class="meta">${esc([g.ages, g.when].filter(Boolean).join(" · ")) || "&nbsp;"}</span>
+      <span class="arc"></span><h3>${esc(g.name)}</h3><span class="meta">${esc([g.ages, daysLabel(g)].filter(Boolean).join(" · ")) || "&nbsp;"}</span>
       <span style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><span class="chip">${n} ילדים</span>${last ? `<span class="chip">אימון אחרון ${fmtShort(last.date)}</span>` : ""}</span></button>`;
   }).join("");
-  const empty = `<div class="card empty"><h3>עוד אין קבוצות</h3><p>פתחו קבוצה ראשונה, למשל "כיתות א׳–ב׳ יום שלישי", ואז הוסיפו את הילדים.</p><button class="btn ball" data-act="group-new">${ICON.plus} קבוצה חדשה</button></div>`;
+  const empty = `<div class="card empty"><h3>עוד אין קבוצות</h3><p>פתחו קבוצה ראשונה, למשל "כיתות א׳–ב׳", ואז הוסיפו את הילדים.</p><button class="btn ball" data-act="group-new">${ICON.plus} קבוצה חדשה</button></div>`;
   const reminder = !store.isCloud && groups.length ? `<div class="note" style="margin-top:18px">הנתונים נשמרים רק במכשיר הזה. כדאי לגבות מדי פעם בהגדרות.</div>` : "";
   page(hero({ title: `שלום, ${firstName(store.user)}`, sub: groups.length ? "בחרו קבוצה כדי להתחיל אימון" : "בואו נקים את הקבוצה הראשונה" }),
     `<div class="section-title"><h2>הקבוצות שלי</h2>${groups.length ? `<button class="btn small" data-act="group-new">${ICON.plus} קבוצה</button>` : ""}</div>
      ${groups.length ? `<div class="groups">${cards}</div>` : empty}${reminder}`, "groups");
 }
 
+/* ---------- קבוצה ---------- */
+let statsPeriod = "all", starMonth = lastMonths(1)[0];
 function viewGroup(gid, tab = "players") {
   live = true;
   const g = store.get("groups", gid); if (!g) return go("#/");
   const players = playersOf(gid), sessions = sessionsOf(gid);
-  const tabs = `<div class="tabs" role="tablist">
-    <button role="tab" aria-selected="${tab === "players"}" data-go="#/g/${gid}">ילדים (${players.length})</button>
-    <button role="tab" aria-selected="${tab === "sessions"}" data-go="#/g/${gid}/sessions">אימונים (${sessions.length})</button></div>`;
-  let body;
+  const tabs = tabsBar([["players", `ילדים`, `#/g/${gid}`], ["sessions", "אימונים", `#/g/${gid}/sessions`], ["stars", "מצטיינים", `#/g/${gid}/stars`], ["stats", "נתונים", `#/g/${gid}/stats`]], tab);
+  const newSession = `<button class="btn ball block" data-act="session-new" ${players.length ? "" : "disabled"} style="margin-bottom:16px">אימון חדש</button>`;
+  let body = "";
   if (tab === "players") {
-    const rows = players.map((p) => { const r = rate(p.id, gid);
-      return `<button class="row" data-act="player-edit" data-id="${p.id}">${jersey(p.number, groupColor(g))}
-        <span class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div></span></button>`; }).join("");
-    body = `<button class="btn ball block" data-act="session-new" ${players.length ? "" : "disabled"} style="margin-bottom:16px">אימון חדש</button>
-      ${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
+    const rows = players.map((p) => { const r = rate(p.id, gid), st = starsOf(p.id);
+      return `<button class="row" data-act="player-edit" data-id="${p.id}">${avatar(p, groupColor(g))}
+        <span class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div></span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
+    body = `${newSession}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
       <button class="btn ghost block" data-act="player-new" style="margin-top:14px">${ICON.plus} הוספת ילד</button>
       <button class="btn small ghost" data-act="group-edit" style="margin:22px auto 0;display:flex">עריכת פרטי הקבוצה</button>`;
-  } else {
-    const rows = sessions.map((s) => { const plan = store.get("plans", s.planId);
-      return `<button class="row" data-go="#/s/${s.id}"><span class="grow"><div class="name">${fmtDate(s.date)}</div>
-        <div class="sub">${presentCount(s)} מתוך ${players.length} ילדים${plan ? " · " + esc(plan.title) : ""}</div></span></button>`; }).join("");
-    body = `<button class="btn ball block" data-act="session-new" ${players.length ? "" : "disabled"} style="margin-bottom:16px">אימון חדש</button>
-      ${sessions.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>עוד לא היו אימונים</h3><p>לחצו על "אימון חדש" בתחילת האימון הבא.</p></div>`}`;
-  }
-  page(hero({ title: g.name, sub: [g.ages, g.when, g.place].filter(Boolean).join(" · "), back: "#/", compact: true, tabs }), body, "groups");
+  } else if (tab === "sessions") {
+    const rows = sessions.map((s) => { const pl = planOf(s), n = s.notes ? esc(s.notes.slice(0, 70)) + (s.notes.length > 70 ? "…" : "") : "";
+      return `<button class="row" data-go="#/summary/${s.id}"><span class="grow"><div class="name">${fmtDate(s.date)}</div>
+        <div class="sub">${presentCount(s)} מתוך ${s.total || players.length} ילדים${pl ? ` · ${esc(pl.title)} · ${stageMinutes(pl)} דק׳` : ""}</div>${n ? `<div class="sub" style="margin-top:2px">${n}</div>` : ""}</span></button>`; }).join("");
+    body = `${newSession}${sessions.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>עוד לא היו אימונים</h3><p>לחצו על "אימון חדש" בתחילת האימון הבא.</p></div>`}`;
+  } else if (tab === "stars") body = starsView(g, players);
+  else body = renderStats(gid, statsPeriod);
+  page(hero({ title: g.name, sub: [g.ages, daysLabel(g), g.place].filter(Boolean).join(" · "), back: "#/", compact: true, tabs }), body, "groups");
+}
+
+/* ---------- מצטייני החודש ---------- */
+function starsView(g, players) {
+  const awards = store.all("awards").filter((a) => a.groupId === g.id).sort((a, b) => b.month.localeCompare(a.month));
+  const cur = awards.find((a) => a.month === starMonth), curP = cur && players.find((p) => p.id === cur.playerId);
+  const months = lastMonths(12);
+  const picker = `<div class="field" style="margin-bottom:12px"><label for="sm">חודש</label><select id="sm" data-act-change="star-month">${months.map((m) => `<option value="${m}" ${m === starMonth ? "selected" : ""}>${monthLabel(m)}</option>`).join("")}</select></div>`;
+  const hero2 = curP
+    ? `<div class="starcard">${avatar(curP, groupColor(g))}<div><small>מצטיין ${monthLabel(starMonth)}</small><h3>${esc(curP.name)}</h3>${cur.note ? `<p>${esc(cur.note)}</p>` : ""}</div></div>
+       <button class="btn ghost block" data-act="star-pick" style="margin-top:12px">שינוי המצטיין</button>`
+    : `<div class="card empty"><h3>עוד לא נבחר מצטיין ל${monthLabel(starMonth)}</h3><button class="btn ball" data-act="star-pick" ${players.length ? "" : "disabled"}>בחירת מצטיין החודש</button></div>`;
+  const hist = awards.map((a) => { const p = players.find((x) => x.id === a.playerId);
+    return p ? `<div class="row" style="cursor:default">${avatar(p, groupColor(g))}<span class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${monthLabel(a.month)}${a.note ? " · " + esc(a.note) : ""}</div></span>${ICON.star}</div>` : ""; }).join("");
+  return `${picker}${hero2}<div class="section-title"><h2>היסטוריה</h2></div>${hist ? `<div class="card">${hist}</div>` : `<div class="card empty"><p>המצטיינים יופיעו כאן לפי חודשים.</p></div>`}`;
+}
+function starForm(gid) {
+  const g = store.get("groups", gid), players = playersOf(gid), cur = store.get("awards", `${gid}_${starMonth}`);
+  openSheet(`<h2>מצטיין ${monthLabel(starMonth)}</h2><form id="sf">
+    <div class="pickgrid">${players.map((p) => `<label class="pick"><input type="radio" name="w" value="${p.id}" ${cur?.playerId === p.id ? "checked" : ""} required>
+      <span>${avatar(p, groupColor(g))}<b>${esc(p.name)}</b></span></label>`).join("")}</div>
+    <div class="field" style="margin-top:14px"><label for="sn2">למה? (לא חובה)</label><input id="sn2" value="${esc(cur?.note)}" placeholder="למשל: עזר לחברים והתאמן בכל אימון"></div>
+    <div class="sheet-actions sticky"><button class="btn ball block" type="submit">שמירה</button>
+    ${cur ? `<button class="btn danger block" type="button" id="sd2">הסרת הבחירה</button>` : ""}<button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+  () => {
+    $("#sf").addEventListener("submit", async (e) => { e.preventDefault();
+      try { await store.save("awards", { id: `${gid}_${starMonth}`, groupId: gid, month: starMonth, playerId: $("#sf input:checked").value, note: $("#sn2").value.trim() }); closeSheet(); toast("נשמר"); } catch (er) { toast("השמירה נכשלה"); } });
+    $("#sd2")?.addEventListener("click", async () => { await store.remove("awards", `${gid}_${starMonth}`); closeSheet(); });
+  });
+}
+
+/* ---------- אימון: עריכה ---------- */
+let pendingSave = null;
+function commitSession(s) {
+  s.present = presentCount(s); s.total = playersOf(s.groupId).length;
+  return store.save("sessions", s);
+}
+const rerenderSession = (sid) => { const y = window.scrollY; viewSession(sid); window.scrollTo(0, y); };
+
+function planBlock(s, editable) {
+  const pl = planOf(s);
+  if (!pl) return "";
+  const minutes = stageMinutes(pl);
+  return `<div class="section-title"><h2>${esc(pl.title)}</h2><span class="chip">${minutes} דק׳</span></div>` +
+    stageList(pl).map((st) => `<section class="stage" style="--sc:${st.color}"><header><h3>${st.label}</h3>${editable ? `<button class="icon-btn" data-act="add-drill" data-stage="${st.k}" aria-label="הוספת תרגיל">${ICON.plus}</button>` : ""}</header>
+      ${st.drills.length ? st.drills.map((d, i) => `<div class="sdrill"><div class="grow"><div class="t">${esc(d.name)} <span class="chip">${d.minutes} דק׳</span>${d.focus ? ` <span class="chip">${FOCUS[d.focus] || ""}</span>` : ""}</div>
+        ${d.desc ? `<div class="d">${esc(d.desc)}</div>` : ""}${d.why ? `<div class="why">${esc(d.why)}</div>` : ""}</div>
+        ${editable ? `<button class="icon-btn" data-act="swap" data-stage="${st.k}" data-i="${i}" aria-label="החלפה">${ICON.swap}</button><button class="icon-btn" data-act="rm-drill" data-stage="${st.k}" data-i="${i}" aria-label="הסרה">${ICON.x}</button>` : ""}</div>`).join("") : `<div class="sub" style="padding:4px 0">אין תרגיל בשלב הזה</div>`}</section>`).join("");
 }
 
 function viewSession(sid) {
   live = false;
   const s = store.get("sessions", sid); if (!s) return go("#/");
-  const g = store.get("groups", s.groupId), players = playersOf(s.groupId), plans = store.all("plans");
-  const plan = store.get("plans", s.planId);
+  const g = store.get("groups", s.groupId), players = playersOf(s.groupId), pl = planOf(s);
   const tiles = players.map((p) => `<button class="tile" data-act="toggle" data-id="${p.id}" aria-pressed="${!!s.attendance?.[p.id]}">
-      <span class="tick">${ICON.check}</span>${jersey(p.number, groupColor(g))}<span class="nm">${esc(p.name)}</span></button>`).join("");
-  const timeline = plan ? `<div class="section-title"><h2>תוכנית: ${esc(plan.title)}</h2></div><div class="card" style="padding:18px 18px 4px"><div class="timeline">
-      ${(plan.drills || []).map((d) => `<div class="step"><div class="t">${esc(d.name)} <span class="chip">${esc(d.minutes || "")} דק׳</span></div>${d.desc ? `<div class="d">${esc(d.desc)}</div>` : ""}</div>`).join("")}</div></div>` : "";
-  page(hero({ title: fmtDate(s.date), sub: g?.name, back: `#/g/${s.groupId}`, compact: true }),
+      <span class="tick">${ICON.check}</span>${avatar(p, groupColor(g))}<span class="nm">${esc(p.name)}</span></button>`).join("");
+  const chooser = `<div class="section-title"><h2>תוכנית האימון</h2></div><div class="modes3">
+      <button class="mode" data-act="plan-mine"><b>התוכנית שלי</b><span>בחירה מתוכנית ששמרתי</span></button>
+      <button class="mode" data-act="plan-random"><b>הגרלה</b><span>תרגיל אקראי מכל שלב</span></button>
+      <button class="mode" data-act="plan-smart"><b>הצעה חכמה</b><span>לפי מה שתורגל לאחרונה</span></button></div>`;
+  const planActions = pl ? `<div class="two" style="margin:14px 0">${pl.mode === "random" || pl.mode === "smart" ? `<button class="btn ghost" data-act="plan-redo">${pl.mode === "random" ? "הגרלה מחדש" : "הצעה אחרת"}</button>` : `<span></span>`}
+      <button class="btn ghost" data-act="plan-clear">בחירת תוכנית אחרת</button></div>` : "";
+  page(hero({ title: fmtDate(s.date), sub: g?.name, back: `#/g/${s.groupId}/sessions`, compact: true }),
     `<div class="card session-head">
       <div class="counter"><b id="cnt">${presentCount(s)}</b><span>מתוך ${players.length} ילדים הגיעו</span></div>
       <div class="bar"><i id="bar" style="width:${players.length ? (presentCount(s) / players.length) * 100 : 0}%"></i></div>
-      <div class="two"><div class="field" style="margin:0"><label for="sd">תאריך</label><input id="sd" type="date" value="${s.date}"></div>
-      <div class="field" style="margin:0"><label for="sp">תוכנית אימון</label><select id="sp"><option value="">ללא תוכנית</option>${plans.map((p) => `<option value="${p.id}" ${p.id === s.planId ? "selected" : ""}>${esc(p.title)}</option>`).join("")}</select></div></div>
-    </div>
+      <div class="field" style="margin:0"><label for="sd">תאריך</label><input id="sd" type="date" value="${s.date}"></div></div>
     <div class="tiles">${tiles}</div>
     <div class="two" style="margin-top:14px"><button class="btn ghost" data-act="all-on">כולם הגיעו</button><button class="btn ghost" data-act="all-off">איפוס</button></div>
-    ${timeline}
-    <div class="field" style="margin-top:18px"><label for="sn">הערות לאימון</label><textarea id="sn" placeholder="מה עבד, מה לשפר בפעם הבאה">${esc(s.notes || "")}</textarea></div>
-    <button class="btn danger block" data-act="session-del">מחיקת האימון</button>`, "groups");
-  const save = debounce(() => store.save("sessions", s), 350);
-  dateInput($("#sd"), (v) => { s.date = v; store.save("sessions", s).then(() => viewSession(sid)); });
-  $("#sp").onchange = (e) => { s.planId = e.target.value; store.save("sessions", s).then(() => viewSession(sid)); };
-  $("#sn").oninput = (e) => { s.notes = e.target.value; save(); };
-  app.dataset.sid = sid;
+    <div class="field" style="margin-top:20px"><label for="sn">הערות לאימון</label><textarea id="sn" placeholder="מה עבד, מי התבלט, מה לשפר בפעם הבאה">${esc(s.notes || "")}</textarea></div>
+    ${pl ? planBlock(s, true) + planActions : chooser}
+    <div class="sheet-actions" style="margin-top:22px"><button class="btn ball block" data-act="session-save">שמירת האימון</button>
+    <button class="btn danger block" data-act="session-del">מחיקת האימון</button></div>`, "groups");
+  pendingSave = debounce(() => commitSession(s), 350);
+  dateInput($("#sd"), (v) => { s.date = v; commitSession(s).then(() => rerenderSession(sid)); });
+  $("#sn").oninput = (e) => { s.notes = e.target.value; pendingSave(); };
 }
 function refreshCounter(s) {
   const n = presentCount(s), total = playersOf(s.groupId).length;
   $("#cnt").textContent = n; $("#bar").style.width = (total ? (n / total) * 100 : 0) + "%";
 }
 
-/* תוכניות אימון */
+/* ---------- אימון: סיכום לצפייה ---------- */
+function viewSummary(sid) {
+  live = true;
+  const s = store.get("sessions", sid); if (!s) return go("#/");
+  const g = store.get("groups", s.groupId), players = playersOf(s.groupId);
+  const here = players.filter((p) => s.attendance?.[p.id]), away = players.filter((p) => !s.attendance?.[p.id]);
+  const chip = (p) => `<span class="pchip">${avatar(p, groupColor(g))}<b>${esc(p.name)}</b></span>`;
+  page(hero({ title: fmtDate(s.date), sub: g?.name, back: `#/g/${s.groupId}/sessions`, compact: true }),
+    `<div class="kpis"><div class="kpi"><b>${here.length}</b><span>הגיעו</span></div><div class="kpi"><b>${away.length}</b><span>חסרו</span></div>
+      <div class="kpi"><b>${players.length ? Math.round((here.length / players.length) * 100) : 0}%</b><span>נוכחות</span></div></div>
+    <section class="card statcard"><h3>מי הגיע</h3><div class="pchips">${here.map(chip).join("") || '<span class="sub">אף אחד לא סומן</span>'}</div></section>
+    ${away.length ? `<section class="card statcard"><h3>מי לא הגיע</h3><div class="pchips dim">${away.map(chip).join("")}</div></section>` : ""}
+    ${s.notes ? `<section class="card statcard"><h3>הערות</h3><p style="margin:0;white-space:pre-wrap">${esc(s.notes)}</p></section>` : ""}
+    ${planOf(s) ? planBlock(s, false) : `<div class="note">לא נבחרה תוכנית לאימון הזה.</div>`}
+    <button class="btn ball block" data-go="#/s/${s.id}" style="margin-top:20px">עריכת האימון</button>`, "groups");
+}
+
+/* ---------- תוכניות וספריית תרגילים ---------- */
+const plansTabs = (cur) => tabsBar([["plans", "התוכניות שלי", "#/plans"], ["library", "ספריית תרגילים", "#/plans/library"]], cur);
 function viewPlans() {
   live = true;
   const plans = store.all("plans").slice().sort((a, b) => (a.title || "").localeCompare(b.title || "", "he"));
-  const rows = plans.map((p) => { const mins = (p.drills || []).reduce((a, d) => a + (+d.minutes || 0), 0);
-    return `<button class="row" data-go="#/plan/${p.id}"><span class="grow"><div class="name">${esc(p.title)}</div><div class="sub">${(p.drills || []).length} תרגילים · ${mins} דקות</div></span></button>`; }).join("");
-  page(hero({ title: "תוכניות אימון", sub: "תרגילים מוכנים לילדים בגילאי 6–8" }),
-    `<div class="section-title"><h2>הספרייה שלי</h2><button class="btn small" data-act="plan-new">${ICON.plus} תוכנית</button></div>
-     ${plans.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>הספרייה ריקה</h3><p>אפשר להתחיל מתוכניות מוכנות ולהתאים אותן, או לכתוב תוכנית חדשה.</p></div>`}
-     ${plans.length < 3 ? `<button class="btn ghost block" data-act="plan-seed" style="margin-top:14px">הוספת תוכניות לדוגמה</button>` : ""}`, "plans");
+  const rows = plans.map((p) => { const ids = Object.values(p.stages || {}).flat(), mins = ids.reduce((a, id) => a + (+store.get("drills", id)?.minutes || 0), 0);
+    return `<button class="row" data-go="#/plan/${p.id}"><span class="grow"><div class="name">${esc(p.title)}</div><div class="sub">${ids.length} תרגילים · ${mins} דקות</div></span></button>`; }).join("");
+  page(hero({ title: "תוכניות אימון", sub: "ארבעה שלבים: חימום, משחקון, יסודות ומשחק סיום", tabs: plansTabs("plans") }),
+    `<div class="section-title"><h2>התוכניות ששמרתי</h2><button class="btn small" data-act="plan-new">${ICON.plus} תוכנית</button></div>
+     ${plans.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>עוד אין תוכניות שמורות</h3><p>בחרו תרגילים מהספרייה לכל שלב ותנו שם לתוכנית. אפשר גם לקבל באימון הגרלה או הצעה חכמה בלי לשמור תוכנית.</p></div>`}`, "plans");
+}
+function viewLibrary() {
+  live = true;
+  const drills = drillsAll();
+  const sec = STAGES.map((st) => { const list = drills.filter((d) => d.stage === st.k).sort((a, b) => a.name.localeCompare(b.name, "he"));
+    return `<section class="stage" style="--sc:${st.color}"><header><h3>${st.label} <small>(${list.length})</small></h3><button class="btn small" data-act="drill-new" data-stage="${st.k}">${ICON.plus} תרגיל</button></header>
+      <div class="card" style="box-shadow:none;background:#fff">${list.map((d) => `<button class="row" data-act="drill-edit" data-id="${d.id}"><span class="grow"><div class="name">${esc(d.name)}</div><div class="sub">${d.minutes} דק׳${d.focus ? " · " + FOCUS[d.focus] : ""}</div></span></button>`).join("") || '<div class="empty">אין תרגילים בשלב הזה</div>'}</div></section>`; }).join("");
+  page(hero({ title: "ספריית תרגילים", sub: `${drills.length} תרגילים בארבעה שלבים`, tabs: plansTabs("library") }), sec, "plans");
+}
+function drillForm(d = {}, stage = "basics") {
+  openSheet(`<h2>${d.id ? "עריכת תרגיל" : "תרגיל חדש"}</h2><form id="df">
+    <div class="two"><div class="field"><label for="ds">שלב</label><select id="ds">${STAGES.map((s) => `<option value="${s.k}" ${(d.stage || stage) === s.k ? "selected" : ""}>${s.label}</option>`).join("")}</select></div>
+    <div class="field"><label for="dm">דקות</label><input id="dm" type="number" inputmode="numeric" min="1" max="60" value="${esc(d.minutes || 10)}"></div></div>
+    <div class="field"><label for="dn">שם התרגיל</label><input id="dn" required value="${esc(d.name)}"></div>
+    <div class="two"><div class="field"><label for="df2">תחום</label><select id="df2"><option value="">ללא</option>${Object.entries(FOCUS).map(([k, v]) => `<option value="${k}" ${d.focus === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+    <div class="field"><label for="dp">מינימום ילדים</label><input id="dp" type="number" inputmode="numeric" min="0" value="${esc(d.min || 0)}"></div></div>
+    <div class="field"><label for="dd">הסבר</label><textarea id="dd" placeholder="איך משחקים? מה המטרה?">${esc(d.desc)}</textarea></div>
+    <div class="sheet-actions sticky"><button class="btn ball block" type="submit">שמירה</button>${d.id ? `<button class="btn danger block" type="button" id="dx">מחיקת התרגיל</button>` : ""}<button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+  () => {
+    $("#df").addEventListener("submit", async (e) => { e.preventDefault();
+      try { await store.save("drills", { ...d, stage: $("#ds").value, name: $("#dn").value.trim(), minutes: +$("#dm").value || 10, focus: $("#df2").value, min: +$("#dp").value || 0, desc: $("#dd").value.trim() }); closeSheet(); } catch { toast("השמירה נכשלה"); } });
+    $("#dx")?.addEventListener("click", async () => { if (confirm("למחוק את התרגיל מהספרייה? אימונים שכבר נשמרו לא ישתנו.")) { await store.remove("drills", d.id); closeSheet(); } });
+  });
 }
 
 let draft = null;
 function viewPlan(id) {
   live = false;
-  draft = draft?.id === id ? draft : structuredClone(store.get("plans", id) || { title: "", drills: [] });
-  if (!draft.id && id !== "new") return go("#/plans");
-  const total = draft.drills.reduce((a, d) => a + (+d.minutes || 0), 0);
-  page(hero({ title: id === "new" ? "תוכנית חדשה" : "עריכת תוכנית", sub: `${draft.drills.length} תרגילים · ${total} דקות`, back: "#/plans", compact: true }),
-    `<div class="field"><label for="pt">שם התוכנית</label><input id="pt" value="${esc(draft.title)}" placeholder="למשל: מסירות ושער"></div>
-     ${draft.drills.map((d, i) => `<div class="drill" data-i="${i}">
-        <div class="drill-head"><input data-f="name" value="${esc(d.name)}" placeholder="שם התרגיל" aria-label="שם התרגיל">
-        <input class="minutes" data-f="minutes" type="number" inputmode="numeric" min="1" value="${esc(d.minutes)}" aria-label="דקות" placeholder="דקות"></div>
-        <div class="field" style="margin:10px 0 6px"><textarea data-f="desc" placeholder="איך משחקים? מה המטרה?" aria-label="הסבר">${esc(d.desc)}</textarea></div>
-        <div style="display:flex;gap:4px;justify-content:flex-end"><button class="icon-btn" data-act="drill-up" aria-label="למעלה">${ICON.up}</button><button class="icon-btn" data-act="drill-down" aria-label="למטה">${ICON.down}</button><button class="icon-btn" data-act="drill-del" aria-label="מחיקה">${ICON.trash}</button></div></div>`).join("")}
-     <button class="btn ghost block" data-act="drill-add">${ICON.plus} הוספת תרגיל</button>
-     <div class="sheet-actions" style="margin-top:20px"><button class="btn ball block" data-act="plan-save">שמירת התוכנית</button>
-     ${draft.id ? `<button class="btn danger block" data-act="plan-del">מחיקת התוכנית</button>` : ""}</div>`, "plans");
+  if (!draft || draft.key !== id) { const p = store.get("plans", id); draft = { key: id, id: p?.id, title: p?.title || "", stages: { ...emptyStages(), ...structuredClone(p?.stages || {}) } }; }
+  const blocks = STAGES.map((st) => { const ids = draft.stages[st.k];
+    return `<section class="stage" style="--sc:${st.color}"><header><h3>${st.label}</h3><button class="btn small" data-act="plan-pick" data-stage="${st.k}">${ICON.plus} תרגילים</button></header>
+      ${ids.map((did) => { const d = store.get("drills", did); return d ? `<div class="sdrill"><div class="grow"><div class="t">${esc(d.name)} <span class="chip">${d.minutes} דק׳</span></div></div><button class="icon-btn" data-act="plan-unpick" data-stage="${st.k}" data-id="${did}" aria-label="הסרה">${ICON.x}</button></div>` : ""; }).join("") || `<div class="sub">עוד לא נבחרו תרגילים</div>`}</section>`; }).join("");
+  const mins = Object.values(draft.stages).flat().reduce((a, i) => a + (+store.get("drills", i)?.minutes || 0), 0);
+  page(hero({ title: draft.id ? "עריכת תוכנית" : "תוכנית חדשה", sub: `${mins} דקות`, back: "#/plans", compact: true }),
+    `<div class="field"><label for="pt">שם התוכנית</label><input id="pt" value="${esc(draft.title)}" placeholder="למשל: מסירות ושער"></div>${blocks}
+     <div class="sheet-actions" style="margin-top:20px"><button class="btn ball block" data-act="plan-save">שמירת התוכנית</button>${draft.id ? `<button class="btn danger block" data-act="plan-del">מחיקת התוכנית</button>` : ""}</div>`, "plans");
+  $("#pt").oninput = (e) => (draft.title = e.target.value);
 }
-function syncDraft() {
-  if (!draft) return;
-  const t = $("#pt"); if (t) draft.title = t.value;
-  document.querySelectorAll(".drill").forEach((el) => {
-    const d = draft.drills[+el.dataset.i]; if (!d) return;
-    el.querySelectorAll("[data-f]").forEach((f) => (d[f.dataset.f] = f.value));
-  });
+function pickDrills(stage, selected, onDone, { single = false, exclude = [] } = {}) {
+  const list = drillsAll().filter((d) => d.stage === stage && !exclude.includes(d.id)).sort((a, b) => a.name.localeCompare(b.name, "he"));
+  openSheet(`<h2>${STAGE[stage].label}: ${single ? "בחירת תרגיל" : "בחירת תרגילים"}</h2><form id="pk">
+    <div class="picklist">${list.map((d) => `<label class="pickrow"><input type="${single ? "radio" : "checkbox"}" name="d" value="${d.id}" ${selected.includes(d.id) ? "checked" : ""}>
+      <span><b>${esc(d.name)}</b><small>${d.minutes} דק׳${d.focus ? " · " + FOCUS[d.focus] : ""}</small></span></label>`).join("") || '<p class="sub">אין תרגילים בשלב הזה. אפשר להוסיף בספרייה.</p>'}</div>
+    <div class="sheet-actions sticky"><button class="btn ball block" type="submit">אישור</button><button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+  () => $("#pk").addEventListener("submit", (e) => { e.preventDefault(); onDone([...document.querySelectorAll("#pk input:checked")].map((i) => i.value)); closeSheet(); }));
 }
 
-/* הגדרות וגיבוי */
+/* ---------- הגדרות ---------- */
 function viewSettings() {
   live = true;
   const last = localStorage.getItem("pivot.lastBackup");
-  const u = store.user;
-  page(hero({ title: "הגדרות", sub: store.isCloud ? u?.email : "מצב מקומי (נתונים במכשיר בלבד)" }),
+  page(hero({ title: "הגדרות", sub: store.isCloud ? store.user?.email : "מצב מקומי (נתונים במכשיר בלבד)" }),
     `<div class="section-title"><h2>גיבוי</h2></div><div class="card" style="padding:16px">
       <p style="margin-top:0">${store.isCloud ? "הנתונים נשמרים בענן ומסתנכרנים בין הטלפון והמחשב. גיבוי לקובץ הוא ביטוח נוסף." : "הנתונים נשמרים רק במכשיר הזה. גבו לקובץ כדי לא לאבד אותם."}</p>
       <p class="sub" style="color:var(--ink-soft);margin-top:0">${last ? "גיבוי אחרון: " + new Date(+last).toLocaleDateString("he-IL") : "עוד לא בוצע גיבוי לקובץ"}</p>
       <div class="two"><button class="btn" data-act="export">גיבוי לקובץ</button><button class="btn ghost" data-act="import">שחזור מקובץ</button></div>
       <input id="file" type="file" accept="application/json,.json" class="hidden"></div>
      <div class="section-title"><h2>חשבון</h2></div><div class="card" style="padding:16px">
-      <div id="install" class="hidden" style="margin-bottom:12px"><button class="btn ball block" data-act="install">התקנה על המסך הראשי</button></div>
+      <div id="install" class="${deferredInstall ? "" : "hidden"}" style="margin-bottom:12px"><button class="btn ball block" data-act="install">התקנה על המסך הראשי</button></div>
       <button class="btn danger block" data-act="signout">${store.isCloud ? "יציאה מהחשבון" : "יציאה מהמצב המקומי"}</button></div>
      <p style="text-align:center;color:var(--ink-soft);font-size:14px;margin-top:20px">פיבוט גרסה ${VERSION}</p>`, "settings");
-  if (deferredInstall) $("#install").classList.remove("hidden");
 }
 let deferredInstall = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; $("#install")?.classList.remove("hidden"); });
 
-/* ---------- טפסים ---------- */
+/* ---------- טפסי קבוצה וילד ---------- */
 function groupForm(g = {}) {
-  openSheet(`<h2>${g.id ? "פרטי הקבוצה" : "קבוצה חדשה"}</h2>
-    <form method="dialog" id="gf">
+  const times = Object.fromEntries(scheduleOf(g).map((x) => [x.day, x.time]));
+  const days = new Set(Object.keys(times).map(Number));
+  openSheet(`<h2>${g.id ? "פרטי הקבוצה" : "קבוצה חדשה"}</h2><form id="gf">
       <div class="field"><label for="gn">שם הקבוצה</label><input id="gn" required value="${esc(g.name)}" placeholder="למשל: כיתות א׳–ב׳"></div>
-      <div class="two"><div class="field"><label for="ga">גילאים</label><input id="ga" value="${esc(g.ages)}" placeholder="6–8"></div>
-      <div class="field"><label for="gw">ימים ושעה</label><input id="gw" value="${esc(g.when)}" placeholder="שלישי 17:00"></div></div>
+      <div class="field"><label for="ga">גילאים</label><input id="ga" value="${esc(g.ages)}" placeholder="6–8"></div>
+      <div class="field"><label>ימי פעילות</label><div class="days">${DAY_SHORT.map((n, i) => `<label class="dayp"><input class="vh" type="checkbox" name="d" value="${i}" ${days.has(i) ? "checked" : ""}><span>${n}</span></label>`).join("")}</div></div>
+      <div id="times"></div>
       <div class="field"><label for="gp">מקום</label><input id="gp" value="${esc(g.place)}" placeholder="אולם ספורט"></div>
-      <div class="field"><label>צבע הקבוצה</label><div style="display:flex;gap:10px;flex-wrap:wrap" id="cols">${COLORS.map((c) => `<label style="cursor:pointer"><input type="radio" name="c" value="${c}" ${c === (g.color || COLORS[0]) ? "checked" : ""} style="position:absolute;opacity:0"><span style="display:block;width:42px;height:42px;border-radius:50%;background:${c};outline:3px solid transparent" class="sw"></span></label>`).join("")}</div></div>
-      <div class="sheet-actions"><button class="btn ball block" value="save">שמירה</button>
-      ${g.id ? `<button class="btn danger block" type="button" id="gd">מחיקת הקבוצה</button>` : ""}<button class="btn ghost block" type="button" onclick="document.getElementById('sheet').close()">ביטול</button></div></form>`,
-    (root) => {
-      const mark = () => root.querySelectorAll(".sw").forEach((sw) => (sw.style.outlineColor = sw.previousElementSibling.checked ? "#10243d" : "transparent"));
-      root.querySelectorAll('input[name="c"]').forEach((r) => r.addEventListener("change", mark)); mark();
-      $("#gf").onsubmit = async () => {
-        const o = { ...g, name: $("#gn").value.trim(), ages: $("#ga").value.trim(), when: $("#gw").value.trim(), place: $("#gp").value.trim(), color: root.querySelector('input[name="c"]:checked').value, createdAt: g.createdAt || Date.now() };
-        const saved = await store.save("groups", o); if (!g.id) go("#/g/" + saved.id);
-      };
-      $("#gd")?.addEventListener("click", async () => {
-        if (!confirm(`למחוק את "${g.name}" יחד עם כל הילדים והאימונים שלה? אי אפשר לבטל.`)) return;
-        closeSheet(); await store.removeGroup(g.id); go("#/");
-      });
+      <div class="field"><label>צבע הקבוצה</label><div class="days" id="cols">${COLORS.map((c) => `<label class="dayp swp"><input class="vh" type="radio" name="c" value="${c}" ${c === (g.color || COLORS[0]) ? "checked" : ""}><span style="background:${c}"></span></label>`).join("")}</div></div>
+      <div class="sheet-actions sticky"><button class="btn ball block" type="submit">שמירה</button>
+      ${g.id ? `<button class="btn danger block" type="button" id="gd">מחיקת הקבוצה</button>` : ""}<button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+  (root) => {
+    // שורת שעה לכל יום שנבחר
+    const paintTimes = () => {
+      document.querySelectorAll("#times input[data-day]").forEach((i) => (times[i.dataset.day] = i.value));
+      const sel = [...root.querySelectorAll('input[name="d"]:checked')].map((i) => +i.value);
+      $("#times").innerHTML = sel.length ? `<div class="field"><label>שעת אימון לכל יום</label>${sel.map((d) => `<div class="trow"><span>יום ${DAY_SHORT[d]}</span><input type="time" data-day="${d}" value="${esc(times[d] || "")}" aria-label="שעה ביום ${DAY_SHORT[d]}"></div>`).join("")}</div>` : "";
+    };
+    root.querySelectorAll('input[name="d"]').forEach((i) => i.addEventListener("change", paintTimes)); paintTimes();
+    $("#gf").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        paintTimes();
+        const schedule = [...root.querySelectorAll('input[name="d"]:checked')].map((i) => ({ day: +i.value, time: times[i.value] || "" })).sort((a, b) => a.day - b.day);
+        const { days, time, ...clean } = g;
+        const o = { ...clean, schedule, name: $("#gn").value.trim(), ages: $("#ga").value.trim(), place: $("#gp").value.trim(),
+          color: root.querySelector('input[name="c"]:checked').value, createdAt: g.createdAt || Date.now() };
+        const saved = await store.save("groups", o); closeSheet(); toast("הקבוצה נשמרה"); if (!g.id) go("#/g/" + saved.id);
+      } catch (er) { toast("השמירה נכשלה: " + (er.message || er)); }
     });
+    $("#gd")?.addEventListener("click", async () => {
+      if (!confirm(`למחוק את "${g.name}" יחד עם כל הילדים והאימונים שלה? אי אפשר לבטל.`)) return;
+      closeSheet(); await store.removeGroup(g.id); go("#/");
+    });
+  });
 }
 
 function playerForm(gid, p = {}) {
-  const phone = p.parentPhone;
+  const g = store.get("groups", gid);
+  let photo = p.photo || "";
   openSheet(`<h2>${p.id ? esc(p.name) : "ילד חדש"}</h2>
-    ${phone ? `<div class="contact"><a class="btn small" href="tel:${esc(phone)}">התקשרות להורה</a><a class="btn small ghost" target="_blank" rel="noopener" href="${waLink(phone)}">וואטסאפ</a></div>` : ""}
-    <form method="dialog" id="pf">
+    ${p.parentPhone ? `<div class="contact"><a class="btn small" href="tel:${esc(p.parentPhone)}">התקשרות להורה</a><a class="btn small ghost" target="_blank" rel="noopener" href="${waLink(p.parentPhone)}">וואטסאפ</a></div>` : ""}
+    <form id="pf">
+      <div class="photo-edit"><div id="pv" class="pv"></div><div class="photo-btns">
+        <button class="btn small ghost" type="button" id="pcam">${ICON.camera} צילום</button><button class="btn small ghost" type="button" id="pgal">${ICON.image} מהגלריה</button>
+        <button class="btn small ghost" type="button" id="prm">הסרה</button></div>
+        <input id="fcam" type="file" accept="image/*" capture="user" class="hidden"><input id="fgal" type="file" accept="image/*" class="hidden"></div>
       <div class="two" style="grid-template-columns:2fr 1fr"><div class="field"><label for="pn">שם מלא</label><input id="pn" required value="${esc(p.name)}"></div>
       <div class="field"><label for="pm">מספר חולצה</label><input id="pm" type="number" inputmode="numeric" min="0" max="99" value="${esc(p.number)}"></div></div>
       <div class="field"><label for="pb">תאריך לידה</label><input id="pb" type="date" value="${esc(p.birth)}"></div>
@@ -262,15 +323,25 @@ function playerForm(gid, p = {}) {
       <div class="field"><label for="pp">טלפון ההורה</label><input id="pp" type="tel" inputmode="tel" value="${esc(p.parentPhone)}" placeholder="050-0000000"></div></div>
       <div class="field"><label for="ph">בריאות ורגישויות</label><textarea id="ph" placeholder="אסתמה, אלרגיה, תרופות">${esc(p.health)}</textarea></div>
       <div class="field"><label for="pt2">הערות מאמן</label><textarea id="pt2" placeholder="חוזקות, מה לחזק, התקדמות">${esc(p.notes)}</textarea></div>
-      <div class="sheet-actions"><button class="btn ball block" value="save">שמירה</button>
-      ${p.id ? `<button class="btn danger block" type="button" id="pd">הסרת הילד מהקבוצה</button>` : ""}<button class="btn ghost block" type="button" onclick="document.getElementById('sheet').close()">ביטול</button></div></form>`,
-    () => {
-      $("#pf").onsubmit = () => store.save("players", { ...p, groupId: gid, name: $("#pn").value.trim(), number: $("#pm").value, birth: $("#pb").value, parentName: $("#pr").value.trim(), parentPhone: $("#pp").value.trim(), health: $("#ph").value.trim(), notes: $("#pt2").value.trim(), createdAt: p.createdAt || Date.now() });
-      $("#pd")?.addEventListener("click", async () => {
-        if (!confirm(`להסיר את ${p.name}? נוכחות עבר תישמר באימונים.`)) return;
-        closeSheet(); await store.remove("players", p.id);
-      });
+      <div class="sheet-actions sticky"><button class="btn ball block" type="submit">שמירה</button>
+      ${p.id ? `<button class="btn danger block" type="button" id="pd">הסרת הילד מהקבוצה</button>` : ""}<button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+  () => {
+    const paint = () => { $("#pv").innerHTML = avatar({ photo, number: $("#pm").value }, groupColor(g)); $("#prm").classList.toggle("hidden", !photo); };
+    paint(); $("#pm").addEventListener("input", paint);
+    $("#pcam").onclick = () => $("#fcam").click(); $("#pgal").onclick = () => $("#fgal").click();
+    $("#prm").onclick = () => { photo = ""; paint(); };
+    for (const id of ["fcam", "fgal"]) $("#" + id).addEventListener("change", async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { photo = await resizeImage(f); paint(); } catch { toast("לא הצלחנו לקרוא את התמונה"); } e.target.value = "";
     });
+    $("#pf").addEventListener("submit", async (e) => { e.preventDefault();
+      try { await store.save("players", { ...p, groupId: gid, photo, name: $("#pn").value.trim(), number: $("#pm").value, birth: $("#pb").value, parentName: $("#pr").value.trim(), parentPhone: $("#pp").value.trim(), health: $("#ph").value.trim(), notes: $("#pt2").value.trim(), createdAt: p.createdAt || Date.now() }); closeSheet(); }
+      catch (er) { toast("השמירה נכשלה: " + (er.message || er)); } });
+    $("#pd")?.addEventListener("click", async () => {
+      if (!confirm(`להסיר את ${p.name}? נוכחות עבר תישמר באימונים.`)) return;
+      closeSheet(); await store.remove("players", p.id);
+    });
+  });
 }
 
 /* ---------- ניתוב ---------- */
@@ -281,23 +352,23 @@ function route() {
   if (!store.user) return viewLogin();
   const [, a, b, c] = (location.hash || "#/").split("/");
   const y = window.scrollY;
-  if (a === "g" && b) viewGroup(b, c === "sessions" ? "sessions" : "players");
+  if (a === "g" && b) viewGroup(b, ["sessions", "stars", "stats"].includes(c) ? c : "players");
   else if (a === "s" && b) viewSession(b);
-  else if (a === "plans") viewPlans();
+  else if (a === "summary" && b) viewSummary(b);
+  else if (a === "plans") (b === "library" ? viewLibrary : viewPlans)();
   else if (a === "plan" && b) viewPlan(b);
   else if (a === "settings") viewSettings();
   else viewHome();
-  if (a !== "s" && a !== "plan") window.scrollTo(0, y);
-  else if (!route.keep) window.scrollTo(0, 0);
+  if (live) window.scrollTo(0, y);
 }
-window.addEventListener("hashchange", () => { draft = null; route.keep = false; route(); window.scrollTo(0, 0); });
-
+window.addEventListener("hashchange", () => { draft = null; route(); window.scrollTo(0, 0); });
 let pending;
 store.onChange(() => { if (live && ready && store.user) { cancelAnimationFrame(pending); pending = requestAnimationFrame(route); } });
 
 /* ---------- פעולות ---------- */
 const curGid = () => (location.hash.split("/")[1] === "g" ? location.hash.split("/")[2] : null);
 const curSession = () => store.get("sessions", location.hash.split("/")[2]);
+function setPlan(plan) { const s = curSession(); s.plan = plan; s.planId = plan.planId || ""; commitSession(s); rerenderSession(s.id); }
 const actions = {
   signin: () => store.signIn().catch((e) => toast("ההתחברות נכשלה: " + (e.code || e.message))),
   signout: () => confirm("לצאת מהחשבון?") && store.signOut(),
@@ -305,33 +376,48 @@ const actions = {
   "group-edit": () => groupForm(store.get("groups", curGid())),
   "player-new": () => playerForm(curGid()),
   "player-edit": (el) => playerForm(curGid(), store.get("players", el.dataset.id)),
+  period: (el) => { statsPeriod = el.dataset.p; route(); },
+  "star-pick": () => starForm(curGid()),
   "session-new": async () => {
-    const gid = curGid(), today = todayStr();
-    const ex = sessionsOf(gid).find((s) => s.date === today);
+    const gid = curGid(), today = todayStr(), ex = sessionsOf(gid).find((s) => s.date === today);
     if (ex) return go("#/s/" + ex.id);
-    const s = await store.save("sessions", { groupId: gid, date: today, attendance: {}, planId: "", notes: "" });
+    const s = await store.save("sessions", { groupId: gid, date: today, attendance: {}, notes: "", present: 0, total: playersOf(gid).length });
     go("#/s/" + s.id);
   },
   toggle: (el) => {
     const s = curSession(); s.attendance = s.attendance || {};
     const on = !s.attendance[el.dataset.id]; s.attendance[el.dataset.id] = on;
-    el.setAttribute("aria-pressed", on); refreshCounter(s); store.save("sessions", s);
+    el.setAttribute("aria-pressed", on); refreshCounter(s); commitSession(s);
   },
-  "all-on": () => { const s = curSession(); s.attendance = Object.fromEntries(playersOf(s.groupId).map((p) => [p.id, true])); store.save("sessions", s).then(() => { route.keep = true; viewSession(s.id); }); },
-  "all-off": () => { const s = curSession(); s.attendance = {}; store.save("sessions", s).then(() => { route.keep = true; viewSession(s.id); }); },
-  "session-del": async () => { const s = curSession(); if (!confirm("למחוק את האימון הזה?")) return; await store.remove("sessions", s.id); go("#/g/" + s.groupId); },
+  "all-on": () => { const s = curSession(); s.attendance = Object.fromEntries(playersOf(s.groupId).map((p) => [p.id, true])); commitSession(s); rerenderSession(s.id); },
+  "all-off": () => { const s = curSession(); s.attendance = {}; commitSession(s); rerenderSession(s.id); },
+  "session-save": async () => { const s = curSession(); pendingSave?.flush?.(); await commitSession(s); toast("האימון נשמר"); go(`#/summary/${s.id}`); },
+  "session-del": async () => { const s = curSession(); if (!confirm("למחוק את האימון הזה?")) return; await store.remove("sessions", s.id); go(`#/g/${s.groupId}/sessions`); },
+  "plan-mine": () => {
+    const plans = store.all("plans").filter((p) => p.stages);
+    if (!plans.length) return toast("עוד אין תוכניות שמורות. אפשר ליצור בלשונית תוכניות.");
+    openSheet(`<h2>בחירת תוכנית</h2><div class="card">${plans.map((p) => `<button class="row" data-act="plan-use" data-id="${p.id}"><span class="grow"><div class="name">${esc(p.title)}</div></span></button>`).join("")}</div>`);
+  },
+  "plan-use": (el) => { closeSheet(); setPlan(planFromSaved(store.get("plans", el.dataset.id), drillsAll())); },
+  "plan-random": () => setPlan(randomPlan(drillsAll())),
+  "plan-smart": () => { const s = curSession(); setPlan(smartPlan(drillsAll(), sessionsOf(s.groupId).filter((x) => x.id !== s.id), playersOf(s.groupId).length)); },
+  "plan-redo": () => { const s = curSession(); actions[s.plan.mode === "smart" ? "plan-smart" : "plan-random"](); },
+  "plan-clear": () => { const s = curSession(); s.plan = null; s.planId = ""; commitSession(s); rerenderSession(s.id); },
+  swap: (el) => { const s = curSession(), pl = planOf(s); s.plan = pl;
+    if (!swapDrill(pl, el.dataset.stage, +el.dataset.i, drillsAll())) return toast("אין עוד תרגילים בשלב הזה"); commitSession(s); rerenderSession(s.id); },
+  "rm-drill": (el) => { const s = curSession(); s.plan = planOf(s); s.plan.stages[el.dataset.stage].splice(+el.dataset.i, 1); commitSession(s); rerenderSession(s.id); },
+  "add-drill": (el) => { const s = curSession(); s.plan = planOf(s); const st = el.dataset.stage;
+    pickDrills(st, [], ([id]) => { if (!id) return; s.plan.stages[st].push(snapOf(store.get("drills", id))); commitSession(s); rerenderSession(s.id); }, { single: true, exclude: s.plan.stages[st].map((d) => d.id) }); },
   "plan-new": () => { draft = null; location.hash = "#/plan/new"; },
-  "plan-seed": async () => { const have = new Set(store.all("plans").map((p) => p.title)); for (const p of SEED_PLANS) if (!have.has(p.title)) await store.save("plans", structuredClone(p)); toast("נוספו תוכניות לדוגמה"); },
-  "drill-add": () => { syncDraft(); draft.drills.push({ name: "", minutes: 10, desc: "" }); viewPlan(draft.id || "new"); },
-  "drill-del": (el) => { syncDraft(); draft.drills.splice(+el.closest(".drill").dataset.i, 1); viewPlan(draft.id || "new"); },
-  "drill-up": (el) => moveDrill(el, -1),
-  "drill-down": (el) => moveDrill(el, 1),
+  "plan-pick": (el) => { const st = el.dataset.stage; pickDrills(st, draft.stages[st], (ids) => { draft.stages[st] = ids; viewPlan(draft.key); }); },
+  "plan-unpick": (el) => { draft.stages[el.dataset.stage] = draft.stages[el.dataset.stage].filter((i) => i !== el.dataset.id); viewPlan(draft.key); },
   "plan-save": async () => {
-    syncDraft(); if (!draft.title.trim()) return toast("נא לתת שם לתוכנית");
-    draft.drills = draft.drills.filter((d) => d.name.trim());
-    await store.save("plans", draft); draft = null; toast("התוכנית נשמרה"); go("#/plans");
+    if (!draft.title.trim()) return toast("נא לתת שם לתוכנית");
+    await store.save("plans", { ...(draft.id ? store.get("plans", draft.id) : {}), title: draft.title.trim(), stages: draft.stages }); draft = null; toast("התוכנית נשמרה"); go("#/plans");
   },
-  "plan-del": async () => { if (!confirm("למחוק את התוכנית?")) return; await store.remove("plans", draft.id); draft = null; go("#/plans"); },
+  "plan-del": async () => { if (!confirm("למחוק את התוכנית? אימונים שנשמרו לא ישתנו.")) return; await store.remove("plans", draft.id); draft = null; go("#/plans"); },
+  "drill-new": (el) => drillForm({}, el.dataset.stage),
+  "drill-edit": (el) => drillForm(store.get("drills", el.dataset.id)),
   export: () => {
     const blob = new Blob([JSON.stringify(store.exportAll(), null, 2)], { type: "application/json" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `pivot-backup-${todayStr()}.json` });
@@ -340,23 +426,26 @@ const actions = {
   import: () => $("#file").click(),
   install: async () => { deferredInstall?.prompt(); deferredInstall = null; }
 };
-function moveDrill(el, d) {
-  syncDraft(); const i = +el.closest(".drill").dataset.i, j = i + d;
-  if (j < 0 || j >= draft.drills.length) return;
-  [draft.drills[i], draft.drills[j]] = [draft.drills[j], draft.drills[i]]; viewPlan(draft.id || "new");
-}
 
 document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]")) return closeSheet();
   const g = e.target.closest("[data-go]"); if (g) return go(g.dataset.go);
   const a = e.target.closest("[data-act]"); if (a) actions[a.dataset.act]?.(a);
 });
 document.addEventListener("change", async (e) => {
+  if (e.target.dataset.actChange === "star-month") { starMonth = e.target.value; return route(); }
   if (e.target.id !== "file" || !e.target.files[0]) return;
-  try {
-    await store.importAll(JSON.parse(await e.target.files[0].text())); toast("הנתונים שוחזרו");
-  } catch (err) { toast(err.message || "הקובץ לא תקין"); }
+  try { await store.importAll(JSON.parse(await e.target.files[0].text())); toast("הנתונים שוחזרו"); }
+  catch (err) { toast(err.message || "הקובץ לא תקין"); }
 });
 
 /* ---------- הפעלה ---------- */
+async function afterLogin() {
+  // טעינת ספריית התרגילים בפעם הראשונה (מזהים קבועים, אז אין כפילויות) ושדרוג תוכניות מגרסה 1
+  const key = "pivot.seeded." + store.user.uid;
+  if (!store.all("drills").length && !localStorage.getItem(key)) { for (const d of SEED_DRILLS) store.save("drills", { ...d }); localStorage.setItem(key, "1"); }
+  await store.upgradeLegacy();
+}
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
-store.start(() => { ready = true; route(); }).catch((e) => { app.innerHTML = `<div class="login"><h1>אופס</h1><p>לא הצלחנו לטעון. בדקו חיבור לאינטרנט ורעננו.</p><small>${esc(e.message)}</small></div>`; });
+store.start(async (u) => { if (u) await afterLogin(); ready = true; route(); })
+  .catch((e) => { app.innerHTML = `<div class="login"><h1>אופס</h1><p>לא הצלחנו לטעון. בדקו חיבור לאינטרנט ורעננו.</p><small>${esc(e.message)}</small></div>`; });

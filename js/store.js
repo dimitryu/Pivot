@@ -2,11 +2,11 @@
 // שאר האפליקציה מדברת רק עם store, ולכן אפשר להחליף מנוע בלי לגעת בממשק.
 import { firebaseConfig, isConfigured } from "./firebase-config.js";
 
-export const SCHEMA_VERSION = 1;
-export const COLLECTIONS = ["groups", "players", "sessions", "plans"];
+export const SCHEMA_VERSION = 2;
+export const COLLECTIONS = ["groups", "players", "sessions", "plans", "drills", "awards"];
 
 const listeners = new Set();
-const data = { groups: [], players: [], sessions: [], plans: [] };
+const data = { groups: [], players: [], sessions: [], plans: [], drills: [], awards: [] };
 let engine = null;
 let currentUser = null;
 
@@ -46,6 +46,19 @@ export const store = {
     if (!json || json.app !== "pivot") throw new Error("הקובץ לא שייך לאפליקציה");
     const migrated = migrate(json);
     for (const c of COLLECTIONS) for (const o of migrated[c] || []) await store.save(c, o);
+    await store.upgradeLegacy();
+  },
+  // גרסה 1 שמרה בתוך כל תוכנית רשימת תרגילים. מעבירים אותם לספריית התרגילים (שלב "יסודות") ומחליפים במזהים.
+  async upgradeLegacy() {
+    for (const p of data.plans.filter((x) => Array.isArray(x.drills))) {
+      const ids = [];
+      for (const d of p.drills.filter((x) => x.name)) {
+        const saved = await store.save("drills", { stage: "basics", name: d.name, minutes: +d.minutes || 10, desc: d.desc || "", focus: "", min: 0 });
+        ids.push(saved.id);
+      }
+      const { drills, ...rest } = p;
+      await store.save("plans", { ...rest, stages: { warmup: [], minigame: [], basics: ids, finale: [] } });
+    }
   },
 
   async signIn() { return engine.signIn(); },
@@ -136,7 +149,8 @@ async function firebaseEngine() {
         });
       });
     },
-    async save(c, obj) { const { id, ...rest } = obj; await F.setDoc(F.doc(db, "users", uid, c, id), rest); },
-    async remove(c, id) { await F.deleteDoc(F.doc(db, "users", uid, c, id)); }
+    // לא מחכים לאישור השרת: המטמון המקומי מתעדכן מיד והסנכרון קורה ברקע (גם בלי אינטרנט)
+    async save(c, obj) { const { id, ...rest } = obj; F.setDoc(F.doc(db, "users", uid, c, id), rest).catch((e) => console.error("save failed", e)); },
+    async remove(c, id) { F.deleteDoc(F.doc(db, "users", uid, c, id)).catch((e) => console.error("delete failed", e)); }
   };
 }
