@@ -1,0 +1,210 @@
+/* פיבוט — עיצוב בהשראת מגרש כדור יד: רצפת אולם כחולה, קווי מגרש צהובים, כדור כתום */
+:root {
+  --ink: #10243d;
+  --ink-soft: #4a5d78;
+  --floor: #1f57e0;
+  --floor-deep: #153fae;
+  --line: #ffc93c;
+  --ball: #ff6b2c;
+  --win: #1fa971;
+  --paper: #edf2fb;
+  --card: #ffffff;
+  --rule: #d5deee;
+  --danger: #d6384a;
+  --r-card: 22px;
+  --r-btn: 14px;
+  --shadow: 0 1px 0 rgba(16, 36, 61, .06), 0 10px 24px -14px rgba(16, 36, 61, .35);
+  --font-display: "Secular One", "Heebo", system-ui, sans-serif;
+  --font-body: "Assistant", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--paper); }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink); background: var(--paper);
+  font: 18px/1.45 var(--font-body); padding-bottom: 92px;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: .01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--floor); }
+:focus-visible { outline: 3px solid var(--ball); outline-offset: 2px; border-radius: 8px; }
+.hidden { display: none !important; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+
+/* ---------- כותרת עם קווי מגרש ---------- */
+.hero {
+  position: relative; overflow: hidden; color: #fff;
+  background: linear-gradient(180deg, var(--floor) 0%, var(--floor-deep) 100%);
+  padding: 22px 0 54px; border-radius: 0 0 36px 36px;
+}
+.hero.compact { padding: 14px 0 34px; }
+.hero svg.court { position: absolute; inset: auto 0 0 0; width: 100%; height: 100%; opacity: .85; pointer-events: none; }
+.hero .wrap { position: relative; }
+.hero h1 { font-size: 34px; line-height: 1.1; }
+.hero.compact h1 { font-size: 28px; }
+.hero p { margin: 6px 0 0; opacity: .9; }
+.topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.back {
+  border: 0; background: rgba(255,255,255,.18); color: #fff; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.back svg { width: 22px; height: 22px; }
+.brand { font-family: var(--font-display); font-size: 20px; display: flex; align-items: center; gap: 8px; }
+.brand i { width: 14px; height: 14px; border-radius: 50%; background: var(--ball); box-shadow: inset -3px -3px 0 rgba(0,0,0,.18); display: inline-block; }
+
+main { margin-top: -26px; position: relative; }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin: 22px 2px 10px; }
+.section-title h2 { font-size: 22px; }
+
+/* ---------- כפתורים ---------- */
+.btn {
+  border: 0; border-radius: var(--r-btn); padding: 14px 20px; min-height: 52px; cursor: pointer;
+  background: var(--floor); color: #fff; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 4px 0 var(--floor-deep); transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--floor-deep); }
+.btn.ball { background: var(--ball); box-shadow: 0 4px 0 #c24a14; }
+.btn.ball:active { box-shadow: 0 1px 0 #c24a14; }
+.btn.ghost { background: transparent; color: var(--floor); box-shadow: inset 0 0 0 2px var(--floor); }
+.btn.ghost:active { transform: none; }
+.btn.danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 2px var(--danger); }
+.btn.block { width: 100%; }
+.btn.small { min-height: 40px; padding: 8px 14px; font-size: 16px; box-shadow: none; }
+.icon-btn { border: 0; background: transparent; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--ink-soft); display: grid; place-items: center; }
+.icon-btn:hover { background: var(--paper); }
+.icon-btn svg { width: 22px; height: 22px; }
+
+/* ---------- כרטיסי קבוצה ---------- */
+.groups { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.group-card {
+  position: relative; overflow: hidden; text-align: right; cursor: pointer; border: 0;
+  background: var(--card); border-radius: var(--r-card); padding: 18px 18px 16px; box-shadow: var(--shadow); min-height: 138px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+}
+.group-card .arc { position: absolute; left: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; border: 10px solid var(--gc); opacity: .95; }
+.group-card .arc::after { content: ""; position: absolute; inset: 14px; border-radius: 50%; border: 3px dashed var(--gc); opacity: .5; }
+.group-card h3 { font-size: 24px; }
+.group-card .meta { color: var(--ink-soft); font-size: 16px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--paper); border-radius: 999px; padding: 4px 12px; font-size: 15px; font-weight: 700; width: fit-content; }
+.chip.win { background: #dcf5e9; color: #0d6b45; }
+.chip.warn { background: #ffe9dc; color: #a8420f; }
+
+/* ---------- רשימות ---------- */
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 6px; }
+.row {
+  display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 16px; cursor: pointer; width: 100%;
+  border: 0; background: transparent; text-align: right; min-height: 64px;
+}
+.row + .row { border-top: 1px solid var(--rule); border-radius: 0; }
+.row:hover { background: #f6f9ff; }
+.row .grow { flex: 1; min-width: 0; }
+.row .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .sub { color: var(--ink-soft); font-size: 15px; }
+.jersey { width: 46px; height: 46px; flex: none; }
+.empty {
+  text-align: center; padding: 34px 20px; color: var(--ink-soft);
+}
+.empty h3 { color: var(--ink); font-size: 22px; margin-bottom: 6px; }
+.empty .btn { margin-top: 14px; }
+
+.tabs { display: flex; gap: 6px; background: rgba(255,255,255,.2); border-radius: 16px; padding: 5px; margin-top: 14px; }
+.tabs button { flex: 1; border: 0; background: transparent; color: #fff; padding: 11px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: #fff; color: var(--floor-deep); }
+
+/* ---------- אימון ונוכחות ---------- */
+.session-head { display: grid; gap: 12px; padding: 14px; }
+.counter { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); }
+.counter b { font-size: 44px; color: var(--win); line-height: 1; }
+.counter span { color: var(--ink-soft); font-size: 18px; font-family: var(--font-body); }
+.bar { height: 10px; background: var(--paper); border-radius: 999px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--win); border-radius: 999px; transition: width .25s; }
+.tiles { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 14px; }
+@media (min-width: 640px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
+.tile {
+  position: relative; border: 0; cursor: pointer; text-align: center; padding: 14px 8px 12px; border-radius: 20px;
+  background: var(--card); box-shadow: var(--shadow); min-height: 124px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  outline: 3px solid transparent; transition: outline-color .15s, background .15s;
+}
+.tile .jersey { width: 54px; height: 54px; filter: grayscale(1); opacity: .45; transition: filter .15s, opacity .15s; }
+.tile .nm { font-weight: 700; line-height: 1.15; }
+.tile .tick { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: var(--paper); display: grid; place-items: center; }
+.tile .tick svg { width: 16px; height: 16px; stroke: #fff; opacity: 0; }
+.tile[aria-pressed="true"] { background: #effaf4; outline-color: var(--win); }
+.tile[aria-pressed="true"] .jersey { filter: none; opacity: 1; }
+.tile[aria-pressed="true"] .tick { background: var(--win); }
+.tile[aria-pressed="true"] .tick svg { opacity: 1; }
+
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field label { font-weight: 700; font-size: 16px; color: var(--ink-soft); }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--rule); background: #fff; min-height: 50px;
+}
+.field textarea { min-height: 90px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--floor); outline: none; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ---------- תוכנית אימון ---------- */
+.drill { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 14px; margin-bottom: 12px; border-right: 8px solid var(--line); }
+.drill-head { display: flex; gap: 8px; align-items: center; }
+.drill-head input { flex: 1; font-weight: 700; }
+.minutes { width: 84px !important; flex: none; text-align: center; }
+.timeline { position: relative; padding-right: 18px; }
+.timeline .step { position: relative; padding: 0 0 14px 0; }
+.timeline .step::before { content: ""; position: absolute; right: -18px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--ball); }
+.timeline .step::after { content: ""; position: absolute; right: -13px; top: 20px; bottom: -4px; width: 2px; background: var(--rule); }
+.timeline .step:last-child::after { display: none; }
+.timeline .t { font-weight: 700; }
+.timeline .d { color: var(--ink-soft); font-size: 16px; }
+
+/* ---------- תפריט תחתון ---------- */
+.nav {
+  position: fixed; inset: auto 0 0 0; z-index: 20; background: #fff; border-top: 1px solid var(--rule);
+  display: flex; justify-content: center; gap: 4px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+.nav button {
+  flex: 1; max-width: 220px; border: 0; background: transparent; padding: 6px; border-radius: 14px; cursor: pointer; color: var(--ink-soft);
+  display: grid; justify-items: center; gap: 2px; font-size: 14px; font-weight: 700;
+}
+.nav button svg { width: 26px; height: 26px; }
+.nav button[aria-current="page"] { color: var(--floor); background: #e8efff; }
+
+/* ---------- חלון תחתון ---------- */
+dialog.sheet {
+  border: 0; padding: 0; width: min(560px, 100%); max-height: 92vh; margin: auto auto 0; border-radius: 28px 28px 0 0;
+  background: #fff; color: var(--ink); box-shadow: 0 -20px 60px rgba(16, 36, 61, .35);
+}
+@media (min-width: 640px) { dialog.sheet { margin: auto; border-radius: 28px; } }
+dialog.sheet::backdrop { background: rgba(16, 36, 61, .55); }
+.sheet-body { padding: 22px 20px 20px; overflow: auto; max-height: 92vh; }
+.sheet-body h2 { font-size: 24px; margin-bottom: 16px; }
+.sheet-actions { display: grid; gap: 10px; margin-top: 8px; }
+.sheet-actions.cols { grid-template-columns: 1fr 1fr; }
+.contact { display: flex; gap: 10px; margin: -4px 0 16px; }
+.contact a { flex: 1; text-align: center; text-decoration: none; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: var(--ink); color: #fff; z-index: 40;
+  padding: 12px 20px; border-radius: 999px; font-weight: 700; box-shadow: var(--shadow); max-width: 90vw;
+}
+
+/* ---------- התחברות ---------- */
+.login { min-height: 100vh; display: grid; align-content: center; justify-items: center; gap: 22px; padding: 28px; text-align: center; color: #fff;
+  background: linear-gradient(180deg, var(--floor), var(--floor-deep)); position: relative; overflow: hidden; }
+.login svg.court { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .7; pointer-events: none; }
+.login > * { position: relative; }
+.login h1 { font-size: 56px; line-height: 1; }
+.login p { margin: 0; font-size: 20px; max-width: 22ch; }
+.login .btn { background: #fff; color: var(--ink); box-shadow: 0 4px 0 rgba(0,0,0,.25); min-width: 260px; }
+.login .btn.local { background: transparent; color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); }
+.ball-big { width: 84px; height: 84px; border-radius: 50%; background: var(--ball); box-shadow: inset -10px -10px 0 rgba(0,0,0,.18); position: relative; }
+.ball-big::before, .ball-big::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 3px solid rgba(255,255,255,.55); }
+.ball-big::after { inset: 18px -30px; border-color: rgba(255,255,255,.35); }
+
+.note { background: #fff7df; border: 2px dashed var(--line); border-radius: 16px; padding: 12px 14px; font-size: 16px; }
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.stat { background: var(--paper); border-radius: 14px; padding: 10px; text-align: center; }
+.stat b { display: block; font-family: var(--font-display); font-size: 26px; font-weight: 400; }
+.stat span { font-size: 14px; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (min-width: 900px) { body { font-size: 19px; } }
+main > .field:first-child { margin-top: 38px; }
