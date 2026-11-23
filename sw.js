@@ -1,5 +1,5 @@
 // העלו את המספר בכל עדכון כדי שמכשירים מותקנים יטענו את הקבצים החדשים.
-const VERSION = "pivot-v3";
+const VERSION = "pivot-v4";
 const SHELL = ["./", "index.html", "styles.css", "manifest.json", "js/app.js", "js/store.js", "js/lib.js", "js/planner.js", "js/stats.js", "js/seed.js", "js/firebase-config.js", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {

@@ -8,7 +8,7 @@ import {
 } from "./lib.js";
 
 const app = $("#app");
-const VERSION = "2.1.0";
+const VERSION = "2.1.1";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
