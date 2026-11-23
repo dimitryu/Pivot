@@ -99,12 +99,14 @@ export function assessSheet(player, onSaved) {
 /* ---------- תגי הצלחה ---------- */
 export const badgeDot = (type, size = 28) => `<span class="bdg" style="--bc:${BADGES[type]?.color || "#888"};width:${size}px;height:${size}px">${ICON.medal}</span>`;
 export function badgeSheet(player, onSaved) {
-  openSheet(`<h2>הענקת תגית ל${esc(player.name)}</h2><form id="bf">
-    <div class="pickgrid">${Object.entries(BADGES).map(([k, b], i) => `<label class="pick"><input type="radio" name="b" value="${k}" ${i === 0 ? "checked" : ""}><span>${badgeDot(k)}<b>${b.label}</b></span></label>`).join("")}</div>
+  openSheet(`<h2>הענקת תגיות ל${esc(player.name)}</h2><p class="sub" style="margin-top:-8px;color:var(--ink-soft)">אפשר לסמן כמה תגיות יחד.</p><form id="bf">
+    <div class="pickgrid">${Object.entries(BADGES).map(([k, b], i) => `<label class="pick"><input type="checkbox" name="b" value="${k}"><span>${badgeDot(k)}<b>${b.label}</b></span></label>`).join("")}</div>
     <div class="field" style="margin-top:14px"><label for="bn">למה? (לא חובה)</label><input id="bn" placeholder="למשל: עזר לחבר שנפל"></div>
     <div class="sheet-actions sticky"><button class="btn ball block" type="submit">הענקה</button><button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
   () => $("#bf").addEventListener("submit", async (e) => { e.preventDefault();
-    await store.save("badges", { playerId: player.id, groupId: player.groupId, type: $("#bf input:checked").value, date: todayStr(), note: $("#bn").value.trim() }); closeSheet(); toast("התגית הוענקה"); onSaved?.(); }));
+    const types = [...document.querySelectorAll("#bf input:checked")].map((i) => i.value); if (!types.length) return toast("סמנו לפחות תגית אחת");
+    for (const type of types) await store.save("badges", { playerId: player.id, groupId: player.groupId, type, date: todayStr(), note: $("#bn").value.trim() });
+    closeSheet(); toast(types.length > 1 ? "התגיות הוענקו" : "התגית הוענקה"); onSaved?.(); }));
 }
 
 /* ---------- חלוקה לקבוצות ---------- */
@@ -125,7 +127,7 @@ export function teamsSheet(players, color) {
     $("#tmBody").innerHTML = `<div class="seg" style="margin-bottom:10px">${[2, 3, 4].map((k) => `<button data-n="${k}" aria-pressed="${n === k}">${k} קבוצות</button>`).join("")}</div>
       ${hasScores ? `<label class="chk"><input type="checkbox" id="tmBal" ${balanced ? "checked" : ""}> איזון לפי הערכות הכישורים</label>` : `<p class="sub" style="color:var(--ink-soft)">הוסיפו הערכות כישורים בפרופיל הילדים כדי לקבל חלוקה מאוזנת.</p>`}
       <div class="teams">${teams.map((t, i) => `<section class="team" style="--tc:${TEAM_COLORS[i][0]}"><h3>${TEAM_COLORS[i][1]} <small>${t.length} ילדים${balanced && hasScores ? ` · רמה ${(t.reduce((a, p) => a + score(p), 0) / (t.length || 1)).toFixed(1)}` : ""}</small></h3>
-        ${t.map((p) => `<div class="tp">${avatar(p, color)}<b>${esc(p.name)}</b></div>`).join("")}</section>`).join("")}</div>`;
+        ${t.map((p) => `<div class="tp">${avatar(p, color, true)}<b>${esc(p.name)}</b></div>`).join("")}</section>`).join("")}</div>`;
     $("#tmBody").querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => { n = +b.dataset.n; deal(); paint(); }));
     $("#tmBal")?.addEventListener("change", (e) => { balanced = e.target.checked; deal(); paint(); });
   };

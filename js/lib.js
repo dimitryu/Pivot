@@ -53,7 +53,15 @@ export const jersey = (num, color) => `<svg class="jersey" viewBox="0 0 48 46" a
   <path d="M15 4 C17 8 21 9.5 24 9.5 C27 9.5 31 8 33 4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="2"/>
   <text x="24" y="33" text-anchor="middle" font-size="14" fill="#fff" font-family="Secular One, sans-serif">${esc(num || "")}</text></svg>`;
 /* תמונת הילד אם יש, אחרת חולצה עם מספר */
-export const avatar = (p, color) => (p?.photo
+let shirtN = 0;
+/* תמונה בתוך חולצה, והמספר בפינה */
+export const shirtPhoto = (p, color) => {
+  const id = "sh" + ++shirtN;
+  return `<span class="shirt"><svg viewBox="0 0 48 46" aria-hidden="true"><defs><clipPath id="${id}"><path d="M15 4 L5 10 L9 20 L13 18 V42 H35 V18 L39 20 L43 10 L33 4 C31 8 27 9.5 24 9.5 C21 9.5 17 8 15 4Z"/></clipPath></defs>
+    <rect x="3" y="2" width="42" height="42" fill="${color}" clip-path="url(#${id})"/><image href="${p.photo}" x="9" y="-2" width="30" height="46" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>
+    <path d="M15 4 L5 10 L9 20 L13 18 V42 H35 V18 L39 20 L43 10 L33 4 C31 8 27 9.5 24 9.5 C21 9.5 17 8 15 4Z" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/></svg>${p.number ? `<i>${esc(p.number)}</i>` : ""}</span>`;
+};
+export const avatar = (p, color, shirt = false) => (shirt && p?.photo ? shirtPhoto(p, color) : p?.photo
   ? `<span class="av"><img src="${p.photo}" alt="">${p.number ? `<i>${esc(p.number)}</i>` : ""}</span>`
   : jersey(p?.number, color));
 

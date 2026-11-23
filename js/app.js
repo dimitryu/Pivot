@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.0.1";
+const VERSION = "3.0.2";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -171,7 +171,7 @@ function viewSession(sid) {
   const s = store.get("sessions", sid); if (!s) return go("#/");
   const g = store.get("groups", s.groupId), players = playersOf(s.groupId), pl = planOf(s);
   const tiles = players.map((p) => `<button class="tile" data-act="toggle" data-id="${p.id}" aria-pressed="${!!s.attendance?.[p.id]}">
-      <span class="tick">${ICON.check}</span>${p.health ? `<span class="hl">${ICON.alert}</span>` : ""}${avatar(p, groupColor(g))}<span class="nm">${esc(p.name)}</span></button>`).join("");
+      <span class="tick">${ICON.check}</span>${p.health ? `<span class="hl">${ICON.alert}</span>` : ""}${avatar(p, groupColor(g), true)}<span class="nm">${esc(p.name)}</span></button>`).join("");
   const tools = `<div class="tools"><button data-act="timer-run" ${pl ? "" : "disabled"}>${ICON.timer}<span>שעון אימון</span></button><button data-act="teams">${ICON.teams}<span>חלוקה לקבוצות</span></button>
     <button data-act="plan-print" ${pl ? "" : "disabled"}>${ICON.print}<span>הדפסה</span></button><button data-act="timer-quick">${ICON.timer}<span>טיימר מהיר</span></button></div>`;
   const chooser = `<div class="section-title"><h2>תוכנית האימון</h2></div><div class="modes3">
