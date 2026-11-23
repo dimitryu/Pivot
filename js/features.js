@@ -82,7 +82,7 @@ export const latestSkills = (pid) => assessmentsOf(pid).at(-1)?.skills || null;
 
 export function assessSheet(player, onSaved) {
   const last = latestSkills(player.id) || {}, vals = { ...last };
-  const row = (k) => `<div class="srow" data-k="${k}"><span>${FOCUS[k]}</span><span class="stars">${[1, 2, 3, 4, 5].map((v) => `<button type="button" data-v="${v}" aria-label="${v}">${ICON.star}</button>`).join("")}</span></div>`;
+  const row = (k) => `<div class="srow" data-k="${k}"><span>${FOCUS[k]}</span><span class="stars">${[1, 2, 3, 4, 5].map((v) => `<button type="button" data-v="${v}" aria-label="${v}">${v}</button>`).join("")}</span></div>`;
   openSheet(`<h2>הערכת כישורים: ${esc(player.name)}</h2><p class="sub" style="margin-top:-8px;color:var(--ink-soft)">1 = מתחיל, 5 = מצטיין. ההערכה נשמרת עם תאריך כדי לראות התקדמות.</p>
     <div id="sr">${Object.keys(FOCUS).map(row).join("")}</div>
     <div class="sheet-actions sticky"><button class="btn ball block" id="asv">שמירת הערכה</button><button class="btn ghost block" data-close>ביטול</button></div>`,
@@ -165,8 +165,11 @@ export function printPlan({ group, date, present, plan, notes }) {
   area.innerHTML = `<h1>${esc(plan.title)}</h1><p class="pm">${esc(group?.name || "")} · ${fmtDate(date)}${present ? ` · ${present} ילדים` : ""} · ${total} דקות</p>
     ${plan.summary ? `<p>${esc(plan.summary)}</p>` : ""}
     ${STAGES.map((s) => { const list = plan.stages[s.k] || []; return list.length ? `<h2 style="border-color:${s.color};color:${s.color}">${s.label}</h2>${list.map((d) => `<div class="pd"><b>${esc(d.name)}</b> <span>${d.minutes} דק׳</span>${d.desc ? `<div>${esc(d.desc)}</div>` : ""}</div>`).join("")}` : ""; }).join("")}
-    ${plan.tips?.length ? `<h2>טיפים</h2><ul>${plan.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
     <h2>הערות</h2><div class="pn">${esc(notes || "")}</div>`;
+  // התאמה לעמוד אחד: מודדים את גובה התוכן ומקטינים לפי הצורך
+  area.style.zoom = "1"; area.classList.add("measure");
+  const maxH = (297 - 24) * 3.7795, h = area.scrollHeight; // A4 פחות שוליים, בפיקסלים
+  area.classList.remove("measure"); area.style.zoom = h > maxH ? String(Math.max(0.45, maxH / h).toFixed(3)) : "1";
   document.body.classList.add("printing");
   setTimeout(() => window.print(), 80);
 }

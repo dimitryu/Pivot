@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.0.0";
+const VERSION = "3.0.1";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -43,7 +43,7 @@ function hero({ title, sub = "", back = "", compact = false, tabs = "" }) {
 }
 function nav(active) {
   const item = (k, label, go) => `<button data-go="${go}" ${active === k ? 'aria-current="page"' : ""}>${ICON[k]}<span>${label}</span></button>`;
-  return `<nav class="nav">${item("groups", "קבוצות", "#/")}${item("plans", "תוכניות", "#/plans")}${item("settings", "הגדרות", "#/settings")}</nav>`;
+  return `<nav class="nav">${courtSVG(true)}${item("groups", "קבוצות", "#/")}${item("plans", "תוכניות", "#/plans")}${item("settings", "הגדרות", "#/settings")}</nav>`;
 }
 const page = (heroHtml, body, active) => { app.innerHTML = `${heroHtml}<main class="wrap">${body}</main>${nav(active)}`; };
 const tabsBar = (items, cur) => `<div class="tabs" role="tablist">${items.map(([k, l, h]) => `<button role="tab" aria-selected="${cur === k}" data-go="${h}">${l}</button>`).join("")}</div>`;
