@@ -9,7 +9,7 @@ import {
 } from "./lib.js";
 
 const app = $("#app");
-const VERSION = "2.2.0";
+const VERSION = "2.2.1";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];

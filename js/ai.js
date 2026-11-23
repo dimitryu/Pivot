@@ -16,7 +16,7 @@ const SYSTEM = `אתה עוזר למאמן כדור יד לילדים בגילא
 החזר JSON בלבד, בלי טקסט לפניו או אחריו, בפורמט:
 {"title":"שם קצר למערך","summary":"שתי שורות למאמן: מה הרעיון של האימון","stages":{"warmup":[{"id":"..","why":"סיבה קצרה"}],"minigame":[],"basics":[],"finale":[]},"tips":["טיפ קצר למאמן","..."]}
 תרגיל חדש נראה כך: {"name":"..","minutes":10,"desc":"..","focus":"pass|dribble|shoot|defense|team|move","why":".."}
-כללים: כל ארבעת השלבים חייבים להופיע; סך הדקות קרוב ליעד; לא יותר משלושה תרגילים בשלב; עד שלושה טיפים.`;
+כללים: היה תמציתי מאוד: "why" עד 6 מילים, "desc" של תרגיל חדש עד משפט אחד, "summary" עד שני משפטים; כל ארבעת השלבים חייבים להופיע; סך הדקות קרוב ליעד; לא יותר משלושה תרגילים בשלב; עד שלושה טיפים.`;
 
 export async function aiBuildPlan({ drills, groupName, ages, present, minutes, request, recent }) {
   const key = aiKey();
@@ -38,16 +38,17 @@ ${lib}`;
     res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", signal: ctrl.signal,
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: aiModel(), max_tokens: 2000, system: SYSTEM, messages: [{ role: "user", content: user }] })
+      body: JSON.stringify({ model: aiModel(), max_tokens: 4096, system: SYSTEM, messages: [{ role: "user", content: user }] })
     });
   } catch (e) { throw new Error(e.name === "AbortError" ? "הבקשה ארכה יותר מדי, נסו שוב" : "אין חיבור לשרת ה-AI. בדקו אינטרנט"); }
   finally { clearTimeout(timer); }
   if (res.status === 401) throw new Error("המפתח לא תקין. בדקו בהגדרות");
   if (res.status === 429) throw new Error("יותר מדי בקשות או שנגמרה המכסה. נסו עוד רגע");
   if (!res.ok) throw new Error("שגיאה משרת ה-AI (" + res.status + ")");
-  const text = (await res.json()).content?.map((c) => c.text || "").join("") || "";
-  const a = text.indexOf("{"), b = text.lastIndexOf("}");
-  let out; try { out = JSON.parse(text.slice(a, b + 1)); } catch { throw new Error("ה-AI החזיר תשובה לא קריאה. נסו שוב"); }
+  const data = await res.json();
+  const text = data.content?.map((c) => c.text || "").join("") || "";
+  const out = parseJson(text);
+  if (!out) { console.warn("AI raw response:", data.stop_reason, text); throw new Error(`ה-AI החזיר תשובה לא קריאה (${data.stop_reason || "?"}). נסו שוב`); }
 
   const stages = emptyStages();
   for (const s of STAGES) for (const it of (out.stages?.[s.k] || []).slice(0, 3)) {
@@ -57,4 +58,21 @@ ${lib}`;
   }
   if (!Object.values(stages).flat().length) throw new Error("ה-AI לא החזיר תרגילים. נסו שוב");
   return { mode: "ai", title: String(out.title || "מערך AI"), summary: String(out.summary || ""), tips: (out.tips || []).slice(0, 3).map(String), stages, request, minutes };
+}
+
+// מנסה לקרוא JSON גם כשהתשובה עטופה בטקסט או נקטעה באמצע: חותך לנקודה האחרונה שאפשר לסגור ממנה
+function parseJson(text) {
+  const start = text.indexOf("{"); if (start < 0) return null;
+  const body = text.slice(start);
+  try { return JSON.parse(body.slice(0, body.lastIndexOf("}") + 1)); } catch { /* ממשיכים לתיקון */ }
+  const stack = []; let inStr = false, esc = false, best = null;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c === "{" ? "}" : "]");
+    else if (c === "}" || c === "]") { stack.pop(); best = { end: i + 1, closers: stack.slice().reverse().join("") }; }
+  }
+  if (!best) return null;
+  try { return JSON.parse(body.slice(0, best.end) + best.closers); } catch { return null; }
 }
