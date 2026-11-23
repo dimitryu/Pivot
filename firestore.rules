@@ -1,12 +1,45 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // כל מאמן רואה וכותב רק את הנתונים שלו
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    // מאמן נוסף שהצטרף עם קוד הזמנה
+    function isMember(uid) { return signedIn() && exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid)); }
+    function canUse(uid) { return isOwner(uid) || isMember(uid); }
+
+    // מסמך המשתמש עצמו: רק הבעלים
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isOwner(uid);
+
+      // נתוני האפליקציה: הבעלים והמאמנים המשותפים
+      match /{coll}/{docId} {
+        allow read, write: if canUse(uid) && coll in ['groups', 'players', 'sessions', 'plans', 'drills', 'awards', 'assessments', 'badges', 'matches'];
       }
+
+      // חברים: הבעלים מנהל, חבר יכול לראות ולמחוק את עצמו
+      match /members/{m} {
+        allow read, delete: if isOwner(uid) || (signedIn() && request.auth.uid == m);
+        allow write: if isOwner(uid);
+        // הצטרפות עצמית רק עם קוד הזמנה תקף שטרם נוצל ושייך לבעלים
+        allow create: if signedIn() && request.auth.uid == m
+          && get(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.owner == uid
+          && get(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.used == false;
+      }
+
+      // רשימת מרחבי העבודה שאני חבר בהם
+      match /workspaces/{w} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // קודי הזמנה: אפשר לקרוא קוד שמכירים (לא לרשום את כולם)
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid && request.resource.data.used == false;
+      allow update: if signedIn() && resource.data.used == false && request.resource.data.used == true
+        && request.resource.data.joiner == request.auth.uid && request.resource.data.owner == resource.data.owner;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
     }
   }
 }

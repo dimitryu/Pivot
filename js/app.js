@@ -5,11 +5,16 @@ import { renderStats } from "./stats.js";
 import { aiBuildPlan, aiKey, setAiKey, aiModel, setAiModel, MODELS } from "./ai.js";
 import {
   $, esc, COLORS, ICON, STAGES, STAGE, FOCUS, DAY_SHORT, courtSVG, jersey, avatar, todayStr, fmtDate, fmtShort, monthLabel,
-  lastMonths, daysLabel, scheduleOf, birthdaysInWeek, firstName, waLink, debounce, toast, dateInput, openSheet, closeSheet, resizeImage
+  lastMonths, daysLabel, scheduleOf, birthdaysInWeek, firstName, waLink, debounce, toast, dateInput, openSheet, closeSheet, resizeImage,
+  BADGES, MATCH_KINDS, ageOf, avgOf, weekdayOf
 } from "./lib.js";
+import {
+  runTimer, quickTimerSheet, stepsOf, assessmentsOf, assessSheet, badgeSheet, badgeDot, teamsSheet, shareSheet, sessionMessage, starMessage,
+  matchMessage, printPlan, exportGroupIcs, matchForm, matchResult, RESULT_LABEL
+} from "./features.js";
 
 const app = $("#app");
-const VERSION = "2.3.0";
+const VERSION = "3.0.0";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -80,7 +85,7 @@ function viewHome() {
   const empty = `<div class="card empty"><h3>עוד אין קבוצות</h3><p>פתחו קבוצה ראשונה, למשל "כיתות א׳–ב׳", ואז הוסיפו את הילדים.</p><button class="btn ball" data-act="group-new">${ICON.plus} קבוצה חדשה</button></div>`;
   const reminder = !store.isCloud && groups.length ? `<div class="note" style="margin-top:18px">הנתונים נשמרים רק במכשיר הזה. כדאי לגבות מדי פעם בהגדרות.</div>` : "";
   page(hero({ title: `שלום, ${firstName(store.user)}`, sub: groups.length ? "בחרו קבוצה כדי להתחיל אימון" : "בואו נקים את הקבוצה הראשונה" }),
-    `<div class="section-title"><h2>הקבוצות שלי</h2>${groups.length ? `<button class="btn small" data-act="group-new">${ICON.plus} קבוצה</button>` : ""}</div>
+    `${wsBanner()}${remindersCard(groups)}<div class="section-title"><h2>הקבוצות שלי</h2>${groups.length ? `<button class="btn small" data-act="group-new">${ICON.plus} קבוצה</button>` : ""}</div>
      ${groups.length ? `<div class="groups">${cards}</div>` : empty}${reminder}`, "groups");
 }
 
@@ -90,16 +95,18 @@ function viewGroup(gid, tab = "players") {
   live = true;
   const g = store.get("groups", gid); if (!g) return go("#/");
   const players = playersOf(gid), sessions = sessionsOf(gid);
-  const tabs = tabsBar([["players", `ילדים`, `#/g/${gid}`], ["sessions", "אימונים", `#/g/${gid}/sessions`], ["stars", "מצטיינים", `#/g/${gid}/stars`], ["stats", "נתונים", `#/g/${gid}/stats`]], tab);
+  const tabs = tabsBar([["players", `ילדים`, `#/g/${gid}`], ["sessions", "אימונים", `#/g/${gid}/sessions`], ["matches", "משחקים", `#/g/${gid}/matches`], ["stars", "מצטיינים", `#/g/${gid}/stars`], ["stats", "נתונים", `#/g/${gid}/stats`]], tab);
   const newSession = `<button class="btn ball block" data-act="session-new" ${players.length ? "" : "disabled"} style="margin-bottom:16px">אימון חדש</button>`;
   let body = "";
   if (tab === "players") {
     const rows = players.map((p) => { const r = rate(p.id, gid), st = starsOf(p.id);
-      return `<button class="row" data-act="player-edit" data-id="${p.id}">${avatar(p, groupColor(g))}
-        <span class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div></span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
+      return `<button class="row" data-go="#/p/${p.id}">${avatar(p, groupColor(g))}
+        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div></span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
     body = `${birthdayCard(g, players)}${newSession}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
       <button class="btn ghost block" data-act="player-new" style="margin-top:14px">${ICON.plus} הוספת ילד</button>
-      <button class="btn small ghost" data-act="group-edit" style="margin:22px auto 0;display:flex">עריכת פרטי הקבוצה</button>`;
+      <div class="two" style="margin-top:22px"><button class="btn small ghost" data-act="group-ics">${ICON.cal} ימי האימון ליומן</button><button class="btn small ghost" data-act="group-edit">עריכת פרטי הקבוצה</button></div>`;
+  } else if (tab === "matches") {
+    body = matchesView(g);
   } else if (tab === "sessions") {
     const rows = sessions.map((s) => { const pl = planOf(s), n = s.notes ? esc(s.notes.slice(0, 70)) + (s.notes.length > 70 ? "…" : "") : "";
       return `<button class="row" data-go="#/summary/${s.id}"><span class="grow"><div class="name">${fmtDate(s.date)}</div>
@@ -118,7 +125,7 @@ function starsView(g, players) {
   const picker = `<div class="field" style="margin-bottom:12px"><label for="sm">חודש</label><select id="sm" data-act-change="star-month">${months.map((m) => `<option value="${m}" ${m === starMonth ? "selected" : ""}>${monthLabel(m)}</option>`).join("")}</select></div>`;
   const hero2 = curP
     ? `<div class="starcard">${avatar(curP, groupColor(g))}<div><small>מצטיין ${monthLabel(starMonth)}</small><h3>${esc(curP.name)}</h3>${cur.note ? `<p>${esc(cur.note)}</p>` : ""}</div></div>
-       <button class="btn ghost block" data-act="star-pick" style="margin-top:12px">שינוי המצטיין</button>`
+       <div class="two" style="margin-top:12px"><button class="btn ghost" data-act="star-share">${ICON.share} הודעה להורים</button><button class="btn ghost" data-act="star-pick">שינוי המצטיין</button></div>`
     : `<div class="card empty"><h3>עוד לא נבחר מצטיין ל${monthLabel(starMonth)}</h3><button class="btn ball" data-act="star-pick" ${players.length ? "" : "disabled"}>בחירת מצטיין החודש</button></div>`;
   const hist = awards.map((a) => { const p = players.find((x) => x.id === a.playerId);
     return p ? `<div class="row" style="cursor:default">${avatar(p, groupColor(g))}<span class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${monthLabel(a.month)}${a.note ? " · " + esc(a.note) : ""}</div></span>${ICON.star}</div>` : ""; }).join("");
@@ -164,7 +171,9 @@ function viewSession(sid) {
   const s = store.get("sessions", sid); if (!s) return go("#/");
   const g = store.get("groups", s.groupId), players = playersOf(s.groupId), pl = planOf(s);
   const tiles = players.map((p) => `<button class="tile" data-act="toggle" data-id="${p.id}" aria-pressed="${!!s.attendance?.[p.id]}">
-      <span class="tick">${ICON.check}</span>${avatar(p, groupColor(g))}<span class="nm">${esc(p.name)}</span></button>`).join("");
+      <span class="tick">${ICON.check}</span>${p.health ? `<span class="hl">${ICON.alert}</span>` : ""}${avatar(p, groupColor(g))}<span class="nm">${esc(p.name)}</span></button>`).join("");
+  const tools = `<div class="tools"><button data-act="timer-run" ${pl ? "" : "disabled"}>${ICON.timer}<span>שעון אימון</span></button><button data-act="teams">${ICON.teams}<span>חלוקה לקבוצות</span></button>
+    <button data-act="plan-print" ${pl ? "" : "disabled"}>${ICON.print}<span>הדפסה</span></button><button data-act="timer-quick">${ICON.timer}<span>טיימר מהיר</span></button></div>`;
   const chooser = `<div class="section-title"><h2>תוכנית האימון</h2></div><div class="modes3">
       <button class="mode" data-act="plan-mine"><b>התוכנית שלי</b><span>בחירה מתוכנית ששמרתי</span></button>
       <button class="mode" data-act="plan-random"><b>הגרלה</b><span>תרגיל אקראי מכל שלב</span></button>
@@ -176,7 +185,7 @@ function viewSession(sid) {
       <div class="counter"><b id="cnt">${presentCount(s)}</b><span>מתוך ${players.length} ילדים הגיעו</span></div>
       <div class="bar"><i id="bar" style="width:${players.length ? (presentCount(s) / players.length) * 100 : 0}%"></i></div>
       <div class="field" style="margin:0"><label for="sd">תאריך</label><input id="sd" type="date" value="${s.date}"></div></div>
-    ${birthdayCard(g, players, new Date(s.date + "T12:00:00"))}
+    ${birthdayCard(g, players, new Date(s.date + "T12:00:00"))}${healthBanner(players)}${tools}
     <div class="tiles">${tiles}</div>
     <div class="two" style="margin-top:14px"><button class="btn ghost" data-act="all-on">כולם הגיעו</button><button class="btn ghost" data-act="all-off">איפוס</button></div>
     <div class="field" style="margin-top:20px"><label for="sn">הערות לאימון</label><textarea id="sn" placeholder="מה עבד, מי התבלט, מה לשפר בפעם הבאה">${esc(s.notes || "")}</textarea></div>
@@ -231,7 +240,8 @@ function viewSummary(sid) {
     <section class="card statcard"><h3>הערות</h3>${s.notes ? `<p style="margin:0 0 12px;white-space:pre-wrap">${esc(s.notes)}</p>` : `<p class="sub" style="margin:0 0 12px">עוד אין הערה לאימון הזה.</p>`}
       <button class="btn small ghost" data-act="note-edit">${s.notes ? "עריכת הערה" : "הוספת הערה"}</button></section>
     ${planOf(s) ? planBlock(s, false) : `<div class="note">לא נבחרה תוכנית לאימון הזה.</div>`}
-    <button class="btn ball block" data-go="#/s/${s.id}" style="margin-top:20px">עריכת האימון</button>`, "groups");
+    <div class="two" style="margin-top:20px"><button class="btn ghost" data-act="summary-share">${ICON.share} הודעה להורים</button><button class="btn ghost" data-act="plan-print" ${planOf(s) ? "" : "disabled"}>${ICON.print} הדפסה</button></div>
+    <button class="btn ball block" data-go="#/s/${s.id}" style="margin-top:12px">עריכת האימון</button>`, "groups");
 }
 
 /* ---------- תוכניות וספריית תרגילים ---------- */
@@ -308,10 +318,12 @@ function viewSettings() {
       <div class="field"><label for="sk">מפתח API</label><input id="sk" type="password" autocomplete="off" placeholder="${aiKey() ? "•••••••• (השאירו ריק כדי לא לשנות)" : "sk-ant-..."}"></div>
       <div class="field"><label for="smod">מודל</label><select id="smod">${MODELS.map(([v, l]) => `<option value="${v}" ${v === aiModel() ? "selected" : ""}>${l}</option>`).join("")}</select></div>
       <div class="two"><button class="btn" data-act="ai-save">שמירה</button>${aiKey() ? `<button class="btn danger" data-act="ai-clear">הסרת המפתח</button>` : "<span></span>"}</div></div>
+     ${store.share.supported() ? `<div class="section-title"><h2>שיתוף עם מאמן נוסף</h2></div><div class="card" style="padding:16px" id="shareBox"><p class="sub" style="margin:0">טוען...</p></div>` : ""}
      <div class="section-title"><h2>חשבון</h2></div><div class="card" style="padding:16px">
       <div id="install" class="${deferredInstall ? "" : "hidden"}" style="margin-bottom:12px"><button class="btn ball block" data-act="install">התקנה על המסך הראשי</button></div>
       <button class="btn danger block" data-act="signout">${store.isCloud ? "יציאה מהחשבון" : "יציאה מהמצב המקומי"}</button></div>
      <p style="text-align:center;color:var(--ink-soft);font-size:14px;margin-top:20px">פיבוט גרסה ${VERSION}</p>`, "settings");
+  if (store.share.supported()) fillShareBox();
 }
 let deferredInstall = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; $("#install")?.classList.remove("hidden"); });
@@ -401,7 +413,8 @@ function route() {
   if (!store.user) return viewLogin();
   const [, a, b, c] = (location.hash || "#/").split("/");
   const y = window.scrollY;
-  if (a === "g" && b) viewGroup(b, ["sessions", "stars", "stats"].includes(c) ? c : "players");
+  if (a === "g" && b) viewGroup(b, ["sessions", "matches", "stars", "stats"].includes(c) ? c : "players");
+  else if (a === "p" && b) viewPlayer(b);
   else if (a === "s" && b) viewSession(b);
   else if (a === "summary" && b) viewSummary(b);
   else if (a === "plans") (b === "library" ? viewLibrary : viewPlans)();
@@ -424,7 +437,7 @@ const actions = {
   "group-new": () => groupForm(),
   "group-edit": () => groupForm(store.get("groups", curGid())),
   "player-new": () => playerForm(curGid()),
-  "player-edit": (el) => playerForm(curGid(), store.get("players", el.dataset.id)),
+  "player-edit": (el) => { const p = store.get("players", el.dataset.id); playerForm(p?.groupId || curGid(), p); },
   period: (el) => { statsPeriod = el.dataset.p; route(); },
   "star-pick": () => starForm(curGid()),
   "session-new": async () => {
@@ -483,7 +496,35 @@ const actions = {
     a.click(); URL.revokeObjectURL(a.href); localStorage.setItem("pivot.lastBackup", Date.now()); toast("הגיבוי הורד"); viewSettings();
   },
   import: () => $("#file").click(),
-  install: async () => { deferredInstall?.prompt(); deferredInstall = null; }
+  install: async () => { deferredInstall?.prompt(); deferredInstall = null; },
+  "timer-run": () => runTimer(stepsOf(planOf(curSession()))),
+  "timer-quick": () => quickTimerSheet(),
+  teams: () => { const s = curSession(), g = store.get("groups", s.groupId), all = playersOf(s.groupId), here = all.filter((p) => s.attendance?.[p.id]); teamsSheet(here.length >= 2 ? here : all, groupColor(g)); },
+  "plan-print": () => { const id = location.hash.split("/")[2], s = store.get("sessions", id), pl = planOf(s); if (!pl) return toast("אין תוכנית להדפסה");
+    printPlan({ group: store.get("groups", s.groupId), date: s.date, present: presentCount(s), plan: pl, notes: s.notes }); },
+  "summary-share": () => { const s = store.get("sessions", location.hash.split("/")[2]); shareSheet("הודעה להורים", sessionMessage(store.get("groups", s.groupId), s, planOf(s))); },
+  "star-share": () => { const g = store.get("groups", curGid()), a = store.get("awards", `${g.id}_${starMonth}`), p = a && store.get("players", a.playerId); if (p) shareSheet("הודעה על מצטיין החודש", starMessage(g, p, starMonth, a.note)); },
+  "group-ics": () => exportGroupIcs(store.get("groups", curGid())),
+  assess: (el) => assessSheet(store.get("players", el.dataset.id)),
+  "badge-give": (el) => badgeSheet(store.get("players", el.dataset.id)),
+  "badge-quick": async (el) => { const p = store.get("players", el.dataset.id); await store.save("badges", { playerId: p.id, groupId: p.groupId, type: el.dataset.t, date: todayStr(), note: "" }); toast("התגית הוענקה"); },
+  "badge-del": async (el) => { if (confirm("להסיר את התגית?")) await store.remove("badges", el.dataset.id); },
+  "match-new": () => matchForm(store.get("groups", curGid()), {}, (m) => shareSheet("הודעה להורים", matchMessage(store.get("groups", m.groupId), m))),
+  "match-edit": (el) => { const m = store.get("matches", el.dataset.id); matchForm(store.get("groups", m.groupId), m, (mm) => shareSheet("הודעה להורים", matchMessage(store.get("groups", mm.groupId), mm))); },
+  "share-invite": async () => {
+    try { const code = await store.share.createInvite();
+      openSheet(`<h2>קוד הזמנה</h2><p>שלחו את הקוד למאמן השני. הוא פועל פעם אחת בלבד.</p><div class="code">${code}</div>
+        <div class="sheet-actions"><button class="btn ball block" id="wcode">שליחה בווטסאפ</button><button class="btn ghost block" data-close>סגירה</button></div>`,
+      () => $("#wcode").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(`הצטרפו אליי לניהול הקבוצות בפיבוט. בהגדרות בוחרים "הצטרפות עם קוד" ומקלידים: ${code}`), "_blank", "noopener"));
+    } catch (e) { toast("יצירת הקוד נכשלה: " + (e.code || e.message)); }
+  },
+  "share-join": () => openSheet(`<h2>הצטרפות עם קוד</h2><form id="jf"><div class="field"><label for="jc">הקוד שקיבלתם</label><input id="jc" required autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.2em;text-align:center"></div>
+      <div class="sheet-actions sticky"><button class="btn ball block" type="submit">הצטרפות</button><button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+    () => $("#jf").addEventListener("submit", async (e) => { e.preventDefault();
+      try { const r = await store.share.join($("#jc").value); closeSheet(); toast("הצטרפתם. אפשר לעבור למרחב של " + (r.ownerName || "המאמן")); fillShareBox(); } catch (er) { toast(er.message || "ההצטרפות נכשלה"); } })),
+  "ws-switch": async (el) => { await store.switchWorkspace(el.dataset.base); toast("עברתם מרחב עבודה"); go("#/"); },
+  "member-rm": async (el) => { if (confirm("להסיר את המאמן? הוא לא יראה יותר את הנתונים שלכם.")) { await store.share.removeMember(el.dataset.uid); fillShareBox(); } },
+  "ws-leave": async (el) => { if (!confirm("לעזוב את המרחב המשותף?")) return; if (store.workspace.base === el.dataset.base) await store.switchWorkspace(store.user.uid); await store.share.leave(el.dataset.base); fillShareBox(); }
 };
 
 document.addEventListener("click", (e) => {
@@ -497,6 +538,99 @@ document.addEventListener("change", async (e) => {
   try { await store.importAll(JSON.parse(await e.target.files[0].text())); toast("הנתונים שוחזרו"); }
   catch (err) { toast(err.message || "הקובץ לא תקין"); }
 });
+
+
+/* ---------- יכולות חדשות: התראת בריאות, תזכורות, משחקים, פרופיל ילד, שיתוף ---------- */
+function healthBanner(players) {
+  const list = players.filter((p) => p.health);
+  if (!list.length) return "";
+  return `<section class="health"><h3>${ICON.alert} שימו לב לפני האימון</h3>${list.map((p) => `<div><b>${esc(p.name)}</b>: ${esc(p.health)}</div>`).join("")}</section>`;
+}
+function wsBanner() {
+  return store.workspace.own ? "" : `<div class="note" style="margin-bottom:14px">אתם עובדים כעת בנתונים המשותפים של מאמן אחר. <button class="btn small ghost" data-act="ws-switch" data-base="${store.user.uid}" style="margin-inline-start:8px">חזרה לנתונים שלי</button></div>`;
+}
+function remindersCard(groups) {
+  const items = [], now = new Date(), today = todayStr(), tmr = new Date(now.getTime() + 864e5), tmrStr = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, "0")}-${String(tmr.getDate()).padStart(2, "0")}`;
+  for (const g of groups) {
+    for (const x of scheduleOf(g)) {
+      if (x.day === now.getDay()) items.push(`היום אימון: ${g.name}${x.time ? " ב-" + x.time : ""}`);
+      else if (x.day === tmr.getDay()) items.push(`מחר אימון: ${g.name}${x.time ? " ב-" + x.time : ""}`);
+    }
+    for (const p of playersOf(g.id)) {
+      if (p.birth && p.birth.slice(5) === today.slice(5)) items.push(`יום הולדת היום: ${p.name} (${g.name})`);
+      else if (p.birth && p.birth.slice(5) === tmrStr.slice(5)) items.push(`מחר יום הולדת: ${p.name} (${g.name})`);
+    }
+  }
+  const weekEnd = new Date(now.getTime() + 7 * 864e5).toISOString().slice(0, 10);
+  for (const m of store.all("matches").filter((x) => x.date >= today && x.date <= weekEnd && !matchResult(x)).sort((a, b) => a.date.localeCompare(b.date))) {
+    const g = store.get("groups", m.groupId); items.push(`משחק ${m.date === today ? "היום" : "ב-" + fmtShort(m.date)}: ${g?.name || ""}${m.opponent ? " נגד " + m.opponent : ""}${m.time ? " ב-" + m.time : ""}`);
+  }
+  const last = +localStorage.getItem("pivot.lastBackup") || 0;
+  if (groups.length && (!last || Date.now() - last > 14 * 864e5)) items.push(`<a href="#/settings">כדאי לגבות את הנתונים לקובץ</a>`);
+  if (!items.length) return "";
+  return `<section class="remind"><h3>${ICON.bell} תזכורות</h3>${items.map((t) => `<div>${/^<a/.test(t) ? t : esc(t)}</div>`).join("")}</section>`;
+}
+function matchesView(g) {
+  const ms = store.all("matches").filter((m) => m.groupId === g.id).sort((a, b) => a.date.localeCompare(b.date)), today = todayStr();
+  const up = ms.filter((m) => m.date >= today && !matchResult(m)), past = ms.filter((m) => !up.includes(m)).reverse();
+  const rec = { win: 0, draw: 0, loss: 0 }; let gf = 0, ga = 0;
+  for (const m of past) { const r = matchResult(m); if (r) { rec[r]++; gf += +m.ourScore; ga += +m.theirScore; } }
+  const row = (m) => { const r = matchResult(m);
+    return `<button class="row" data-act="match-edit" data-id="${m.id}"><span class="grow"><div class="name">${m.opponent ? "נגד " + esc(m.opponent) : MATCH_KINDS[m.kind] || "משחק"}</div>
+      <div class="sub">${fmtDate(m.date)}${m.time ? " · " + esc(m.time) : ""}${m.place ? " · " + esc(m.place) : ""} · ${MATCH_KINDS[m.kind] || ""}</div></span>
+      ${r ? `<span class="res ${r}">${m.ourScore}:${m.theirScore} ${RESULT_LABEL[r]}</span>` : `<span class="chip">${ICON.cal}</span>`}</button>`; };
+  const summary = past.some(matchResult) ? `<div class="kpis"><div class="kpi"><b>${rec.win}</b><span>ניצחונות</span></div><div class="kpi"><b>${rec.draw}</b><span>תיקו</span></div><div class="kpi"><b>${rec.loss}</b><span>הפסדים</span></div></div>
+    <p class="sub" style="text-align:center;margin:-4px 0 14px">שערים: ${gf} בעד, ${ga} נגד</p>` : "";
+  return `<button class="btn ball block" data-act="match-new" style="margin-bottom:16px">${ICON.trophy} משחק חדש</button>${summary}
+    ${up.length ? `<div class="section-title"><h2>משחקים קרובים</h2></div><div class="card">${up.map(row).join("")}</div>` : ""}
+    ${past.length ? `<div class="section-title"><h2>משחקים שהיו</h2></div><div class="card">${past.map(row).join("")}</div>` : ""}
+    ${!ms.length ? `<div class="card empty"><h3>עוד אין משחקים</h3><p>הוסיפו משחק או טורניר כדי לעקוב אחרי תוצאות, ציוד והודעות להורים.</p></div>` : ""}`;
+}
+function viewPlayer(pid) {
+  live = true;
+  const p = store.get("players", pid); if (!p) return go("#/");
+  const g = store.get("groups", p.groupId), col = groupColor(g), as = assessmentsOf(pid), last = as.at(-1), prev = as.at(-2);
+  const bs = store.all("badges").filter((b) => b.playerId === pid).sort((a, b) => b.date.localeCompare(a.date));
+  const r = rate(pid, p.groupId), age = ageOf(p.birth), ss = sessionsOf(p.groupId);
+  const sug = []; const has = (t) => bs.some((b) => b.type === t);
+  if (ss.length >= 4 && r === 100 && !has("attend")) sug.push("attend");
+  if (p.createdAt && Date.now() - p.createdAt < 30 * 864e5 && !has("newbie")) sug.push("newbie");
+  if (last && prev && avgOf(last.skills) - avgOf(prev.skills) >= 0.5 && !has("improve")) sug.push("improve");
+  const graph = () => {
+    if (as.length < 2) return `<p class="sub" style="margin:0">הוסיפו לפחות שתי הערכות בזמנים שונים כדי לראות גרף התקדמות.</p>`;
+    const W = 300, H = 110, pts = as.slice(-8).map((a, i, arr) => [arr.length === 1 ? W / 2 : 14 + (i * (W - 28)) / (arr.length - 1), H - 12 - ((avgOf(a.skills) - 1) / 4) * (H - 28), a]);
+    return `<svg viewBox="0 0 ${W} ${H}" class="graph" role="img" aria-label="התקדמות כללית">${[1, 3, 5].map((v) => { const y = H - 12 - ((v - 1) / 4) * (H - 28); return `<line x1="8" x2="${W - 8}" y1="${y}" y2="${y}" stroke="#d9dfe8" stroke-dasharray="3 4"/>`; }).join("")}
+      <polyline fill="none" stroke="${col}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" points="${pts.map((q) => q[0] + "," + q[1]).join(" ")}"/>
+      ${pts.map((q) => `<circle cx="${q[0]}" cy="${q[1]}" r="5" fill="#fff" stroke="${col}" stroke-width="3"/>`).join("")}</svg>
+      <div class="sub" style="display:flex;justify-content:space-between"><span>${fmtShort(pts[0][2].date)}</span><span>${fmtShort(pts.at(-1)[2].date)}</span></div>`;
+  };
+  const skillRows = last ? Object.keys(FOCUS).filter((k) => last.skills[k]).map((k) => { const d = prev?.skills?.[k] ? last.skills[k] - prev.skills[k] : 0;
+    return `<div class="skill"><span>${FOCUS[k]}</span><span class="dots">${[1, 2, 3, 4, 5].map((v) => `<i class="${v <= last.skills[k] ? "on" : ""}" style="--c:${col}"></i>`).join("")}</span><small class="${d > 0 ? "up" : d < 0 ? "down" : ""}">${d > 0 ? "+" + d : d < 0 ? d : ""}</small></div>`; }).join("") : "";
+  page(hero({ title: p.name, sub: [g?.name, age != null ? "גיל " + age : ""].filter(Boolean).join(" · "), back: `#/g/${p.groupId}`, compact: true }),
+    `<div class="pcard">${avatar(p, col)}<div class="kpis" style="margin:0;flex:1"><div class="kpi"><b>${r === null ? "-" : r + "%"}</b><span>נוכחות</span></div><div class="kpi"><b>${starsOf(pid)}</b><span>מצטיין חודש</span></div><div class="kpi"><b>${bs.length}</b><span>תגיות</span></div></div></div>
+    ${p.health ? `<section class="health"><h3>${ICON.alert} רגישות בריאותית</h3><div>${esc(p.health)}</div></section>` : ""}
+    <section class="card statcard"><h3>כישורים</h3>${skillRows || `<p class="sub" style="margin:0 0 4px">עוד אין הערכה. דרגו כל כישור מ-1 עד 5.</p>`}
+      <div style="margin:12px 0 4px">${graph()}</div><button class="btn small ball" data-act="assess" data-id="${pid}">${last ? "הערכה חדשה" : "הערכת כישורים"}</button></section>
+    <section class="card statcard"><h3>תגיות הצלחה</h3>
+      ${sug.length ? `<div class="sug">מגיע לו? ${sug.map((t) => `<button class="btn small ghost" data-act="badge-quick" data-id="${pid}" data-t="${t}">${BADGES[t].label}</button>`).join("")}</div>` : ""}
+      ${bs.length ? `<div class="badges">${bs.map((b) => `<button class="badge" data-act="badge-del" data-id="${b.id}" title="הסרה">${badgeDot(b.type, 34)}<b>${BADGES[b.type]?.label || ""}</b><small>${fmtShort(b.date)}${b.note ? " · " + esc(b.note) : ""}</small></button>`).join("")}</div>` : `<p class="sub" style="margin:0 0 8px">עוד לא חולקו תגיות.</p>`}
+      <button class="btn small ball" data-act="badge-give" data-id="${pid}">${ICON.medal} חלוקת תגית</button></section>
+    ${p.notes ? `<section class="card statcard"><h3>הערות מאמן</h3><p style="margin:0;white-space:pre-wrap">${esc(p.notes)}</p></section>` : ""}
+    ${p.parentPhone ? `<div class="contact" style="margin-top:12px"><a class="btn small" href="tel:${esc(p.parentPhone)}">התקשרות ל${esc(p.parentName || "הורה")}</a><a class="btn small ghost" target="_blank" rel="noopener" href="${waLink(p.parentPhone)}">וואטסאפ</a></div>` : ""}
+    <button class="btn ghost block" data-act="player-edit" data-id="${pid}" style="margin-top:16px">עריכת פרטי הילד</button>`, "groups");
+}
+async function fillShareBox() {
+  const box = $("#shareBox"); if (!box) return;
+  try {
+    const [mem, ws] = await Promise.all([store.share.members(), store.share.workspaces()]), own = store.workspace.own;
+    box.innerHTML = `<p style="margin-top:0">אפשר להזמין מאמן נוסף שיראה וידווח על אותן קבוצות, בזמן אמת. כל אחד נכנס עם החשבון שלו.</p>
+      <div class="two"><button class="btn ball" data-act="share-invite">קוד הזמנה</button><button class="btn ghost" data-act="share-join">הצטרפות עם קוד</button></div>
+      ${mem.length ? `<h4 class="mini">מאמנים שיש להם גישה לנתונים שלי</h4>${mem.map((m) => `<div class="mrow"><span>${esc(m.name || m.email || "מאמן")}</span><button class="btn small danger" data-act="member-rm" data-uid="${m.uid}">הסרה</button></div>`).join("")}` : ""}
+      ${ws.length || !own ? `<h4 class="mini">מרחבי עבודה</h4>
+        <div class="mrow"><span>הנתונים שלי ${own ? "(פעיל)" : ""}</span>${own ? "" : `<button class="btn small" data-act="ws-switch" data-base="${store.user.uid}">מעבר</button>`}</div>
+        ${ws.map((w) => `<div class="mrow"><span>הנתונים של ${esc(w.ownerName || "מאמן")} ${store.workspace.base === w.ownerUid ? "(פעיל)" : ""}</span><span>${store.workspace.base === w.ownerUid ? "" : `<button class="btn small" data-act="ws-switch" data-base="${w.ownerUid}">מעבר</button> `}<button class="btn small danger" data-act="ws-leave" data-base="${w.ownerUid}">עזיבה</button></span></div>`).join("")}` : ""}`;
+  } catch (e) { box.innerHTML = `<p class="sub" style="margin:0">לא הצלחנו לטעון את פרטי השיתוף (${esc(e.code || e.message)}). בדקו שפרסמתם את כללי האבטחה החדשים ב-Firebase.</p>`; }
+}
 
 /* ---------- הפעלה ---------- */
 async function afterLogin() {

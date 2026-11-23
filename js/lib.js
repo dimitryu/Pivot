@@ -21,7 +21,19 @@ export const ICON = {
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>',
   check: '<svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  timer: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 2M9.5 3h5"/></svg>',
+  teams: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
+  print: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3h10v6M7 17H5a2 2 0 01-2-2v-4a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2M7 14h10v7H7z"/></svg>',
+  share: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3zM12 10v4M12 17v.5"/></svg>',
+  medal: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M8.5 3l3.5 6 3.5-6M12 12.5v5"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17V11a6 6 0 1112 0v6l1.5 2h-15zM10 21h4"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v6a4 4 0 01-8 0zM8 6H4v2a3 3 0 003 3M16 6h4v2a3 3 0 01-3 3M12 14v4M8.5 21h7"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.5" height="15" rx="1"/><rect x="13.5" y="4.5" width="4.5" height="15" rx="1"/></svg>',
+  skip: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 5v14h-2.5V5zM5 5l9 7-9 7z" transform="translate(24 0) scale(-1 1)"/></svg>',
+  chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
   swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
@@ -113,3 +125,38 @@ export function birthdaysInWeek(players, ref = new Date()) {
   }
   return out.sort((a, b) => a.date - b.date);
 }
+
+/* ---------- כישורים, תגיות, משחקים ---------- */
+export const TEAM_COLORS = [["#ff6b2c", "הכתומים"], ["#1f57e0", "הכחולים"], ["#1fa971", "הירוקים"], ["#7a4dfd", "הסגולים"]];
+export const BADGES = {
+  attend: { label: "נוכחות מלאה", color: "#1fa971" }, newbie: { label: "חדש בקבוצה", color: "#1f57e0" },
+  improve: { label: "שיפור גדול", color: "#ff6b2c" }, teamplayer: { label: "שחקן צוות", color: "#7a4dfd" },
+  effort: { label: "מאמץ מיוחד", color: "#e8438b" }, fair: { label: "משחק הוגן", color: "#f2a900" }
+};
+export const GEAR = ["כדורים", "חולצות או סרטים", "מים", "ערכת עזרה ראשונה", "שריקה", "רשימת שחקנים"];
+export const MATCH_KINDS = { friendly: "ידידות", league: "ליגה", tournament: "טורניר" };
+export const ageOf = (birth, ref = new Date()) => {
+  if (!birth) return null; const b = new Date(birth + "T12:00:00");
+  let a = ref.getFullYear() - b.getFullYear(); const m = ref.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && ref.getDate() < b.getDate())) a--; return a;
+};
+export const avgOf = (o) => { const v = Object.values(o || {}).filter((x) => +x > 0).map(Number); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; };
+
+/* ---------- קבצים ויומן ---------- */
+export function downloadText(name, text, mime = "text/plain") {
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([text], { type: mime + ";charset=utf-8" })), download: name });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const icsT = (s) => String(s || "").replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+export function buildIcs(events) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pivot//HE", "CALSCALE:GREGORIAN"];
+  for (const e of events) {
+    lines.push("BEGIN:VEVENT", `UID:${e.uid}@pivot`, `DTSTAMP:${stamp}`, `DTSTART:${e.start}`, `DURATION:PT${e.minutes || 60}M`);
+    if (e.rrule) lines.push("RRULE:" + e.rrule);
+    lines.push(`SUMMARY:${icsT(e.title)}`); if (e.place) lines.push(`LOCATION:${icsT(e.place)}`); if (e.desc) lines.push(`DESCRIPTION:${icsT(e.desc)}`);
+    lines.push("BEGIN:VALARM", `TRIGGER:-PT${e.alarm || 60}M`, "ACTION:DISPLAY", `DESCRIPTION:${icsT(e.title)}`, "END:VALARM", "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR"); return lines.join("\r\n");
+}
+export const icsStamp = (d, time = "17:00") => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${time.replace(":", "")}00`;
