@@ -1,6 +1,6 @@
 import { store } from "./store.js";
 import { SEED_DRILLS } from "./seed.js";
-import { randomPlan, smartPlan, planFromSaved, swapDrill, snapOf, stageMinutes, stageList, emptyStages } from "./planner.js";
+import { randomPlan, planFromSaved, swapDrill, snapOf, stageMinutes, stageList, emptyStages } from "./planner.js";
 import { renderStats } from "./stats.js";
 import { aiBuildPlan, aiKey, setAiKey, aiModel, setAiModel, MODELS } from "./ai.js";
 import {
@@ -9,7 +9,7 @@ import {
 } from "./lib.js";
 
 const app = $("#app");
-const VERSION = "2.2.1";
+const VERSION = "2.3.0";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -168,9 +168,8 @@ function viewSession(sid) {
   const chooser = `<div class="section-title"><h2>תוכנית האימון</h2></div><div class="modes3">
       <button class="mode" data-act="plan-mine"><b>התוכנית שלי</b><span>בחירה מתוכנית ששמרתי</span></button>
       <button class="mode" data-act="plan-random"><b>הגרלה</b><span>תרגיל אקראי מכל שלב</span></button>
-      <button class="mode" data-act="plan-smart"><b>הצעה חכמה</b><span>לפי מה שתורגל לאחרונה</span></button>
       <button class="mode ai" data-act="plan-ai"><b>עוזר AI</b><span>מערך לפי הבקשה שלכם, בשיחה חופשית</span></button></div>`;
-  const planActions = pl ? `<div class="two" style="margin:14px 0">${pl.mode === "random" || pl.mode === "smart" ? `<button class="btn ghost" data-act="plan-redo">${pl.mode === "random" ? "הגרלה מחדש" : "הצעה אחרת"}</button>` : pl.mode === "ai" ? `<button class="btn ghost" data-act="plan-ai-redo">בקשת שינוי מה-AI</button>` : `<span></span>`}
+  const planActions = pl ? `<div class="two" style="margin:14px 0">${pl.mode === "random" ? `<button class="btn ghost" data-act="plan-redo">הגרלה מחדש</button>` : pl.mode === "ai" ? `<button class="btn ghost" data-act="plan-ai-redo">בקשת שינוי מה-AI</button>` : `<span></span>`}
       <button class="btn ghost" data-act="plan-clear">בחירת תוכנית אחרת</button></div>` : "";
   page(hero({ title: fmtDate(s.date), sub: g?.name, back: `#/g/${s.groupId}/sessions`, compact: true }),
     `<div class="card session-head">
@@ -200,7 +199,7 @@ function aiSheet(prefill = {}) {
     ${hasKey ? "" : `<div class="note" style="margin-bottom:14px">צריך מפתח Anthropic API פעם אחת. הוא נשמר רק במכשיר הזה. מומלץ ליצור מפתח ייעודי עם תקרת הוצאה ב-console.anthropic.com.</div>
     <div class="field"><label for="ak">מפתח API</label><input id="ak" type="password" autocomplete="off" placeholder="sk-ant-..."></div>`}
     <div class="field"><label for="ar">מה חשוב לכם באימון הזה?</label><textarea id="ar" placeholder="למשל: לעבוד על מסירות, הרבה ילדים חדשים, חם באולם">${esc(prefill.request)}</textarea></div>
-    <div class="field"><label for="am">משך האימון</label><select id="am">${[30, 45, 60, 75, 90].map((m) => `<option value="${m}" ${m === (prefill.minutes || 60) ? "selected" : ""}>${m} דקות</option>`).join("")}</select></div>
+    <div class="field"><label for="am">משך האימון</label><select id="am">${[30, 45, 60, 75, 90].map((m) => `<option value="${m}" ${m === (prefill.minutes || 45) ? "selected" : ""}>${m} דקות</option>`).join("")}</select></div>
     <p class="sub" style="color:var(--ink-soft);margin-top:0">נשלחים רק שמות תרגילים, מספר הילדים וסיכום האימונים האחרונים. שמות ילדים והערות לא נשלחים.</p>
     <div class="sheet-actions sticky"><button class="btn ball block" type="submit" id="ago">בניית המערך</button><button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
   () => $("#af").addEventListener("submit", async (e) => {
@@ -229,7 +228,8 @@ function viewSummary(sid) {
       <div class="kpi"><b>${players.length ? Math.round((here.length / players.length) * 100) : 0}%</b><span>נוכחות</span></div></div>
     <section class="card statcard"><h3>מי הגיע</h3><div class="pchips">${here.map(chip).join("") || '<span class="sub">אף אחד לא סומן</span>'}</div></section>
     ${away.length ? `<section class="card statcard"><h3>מי לא הגיע</h3><div class="pchips dim">${away.map(chip).join("")}</div></section>` : ""}
-    ${s.notes ? `<section class="card statcard"><h3>הערות</h3><p style="margin:0;white-space:pre-wrap">${esc(s.notes)}</p></section>` : ""}
+    <section class="card statcard"><h3>הערות</h3>${s.notes ? `<p style="margin:0 0 12px;white-space:pre-wrap">${esc(s.notes)}</p>` : `<p class="sub" style="margin:0 0 12px">עוד אין הערה לאימון הזה.</p>`}
+      <button class="btn small ghost" data-act="note-edit">${s.notes ? "עריכת הערה" : "הוספת הערה"}</button></section>
     ${planOf(s) ? planBlock(s, false) : `<div class="note">לא נבחרה תוכנית לאימון הזה.</div>`}
     <button class="btn ball block" data-go="#/s/${s.id}" style="margin-top:20px">עריכת האימון</button>`, "groups");
 }
@@ -245,12 +245,14 @@ function viewPlans() {
     `<div class="section-title"><h2>התוכניות ששמרתי</h2><button class="btn small" data-act="plan-new">${ICON.plus} תוכנית</button></div>
      ${plans.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>עוד אין תוכניות שמורות</h3><p>בחרו תרגילים מהספרייה לכל שלב ותנו שם לתוכנית. אפשר גם לקבל באימון הגרלה או הצעה חכמה בלי לשמור תוכנית.</p></div>`}`, "plans");
 }
+// מצב הקיפול נשמר במכשיר. ברירת מחדל: הכול מקופל, וכך רואים את ארבעת השלבים במבט אחד.
+const openStages = () => { try { return JSON.parse(localStorage.getItem("pivot.lib.open") || "[]"); } catch { return []; } };
 function viewLibrary() {
   live = true;
-  const drills = drillsAll();
-  const sec = STAGES.map((st) => { const list = drills.filter((d) => d.stage === st.k).sort((a, b) => a.name.localeCompare(b.name, "he"));
-    return `<section class="stage" style="--sc:${st.color}"><header><h3>${st.label} <small>(${list.length})</small></h3><button class="btn small" data-act="drill-new" data-stage="${st.k}">${ICON.plus} תרגיל</button></header>
-      <div class="card" style="box-shadow:none;background:#fff">${list.map((d) => `<button class="row" data-act="drill-edit" data-id="${d.id}"><span class="grow"><div class="name">${esc(d.name)}</div><div class="sub">${d.minutes} דק׳${d.focus ? " · " + FOCUS[d.focus] : ""}</div></span></button>`).join("") || '<div class="empty">אין תרגילים בשלב הזה</div>'}</div></section>`; }).join("");
+  const drills = drillsAll(), open = openStages();
+  const sec = STAGES.map((st) => { const list = drills.filter((d) => d.stage === st.k).sort((a, b) => a.name.localeCompare(b.name, "he")), isOpen = open.includes(st.k);
+    return `<section class="stage collapsible ${isOpen ? "open" : ""}" style="--sc:${st.color}"><header><button class="fold" data-act="fold" data-stage="${st.k}" aria-expanded="${isOpen}"><span class="chev">${ICON.chev}</span><h3>${st.label} <small>(${list.length})</small></h3></button><button class="btn small" data-act="drill-new" data-stage="${st.k}">${ICON.plus} תרגיל</button></header>
+      <div class="card fold-body" style="box-shadow:none;background:#fff" ${isOpen ? "" : "hidden"}>${list.map((d) => `<button class="row" data-act="drill-edit" data-id="${d.id}"><span class="grow"><div class="name">${esc(d.name)}</div><div class="sub">${d.minutes} דק׳${d.focus ? " · " + FOCUS[d.focus] : ""}</div></span></button>`).join("") || '<div class="empty">אין תרגילים בשלב הזה</div>'}</div></section>`; }).join("");
   page(hero({ title: "ספריית תרגילים", sub: `${drills.length} תרגילים בארבעה שלבים`, tabs: plansTabs("library") }), sec, "plans");
 }
 function drillForm(d = {}, stage = "basics") {
@@ -451,8 +453,7 @@ const actions = {
   },
   "plan-use": (el) => { closeSheet(); setPlan(planFromSaved(store.get("plans", el.dataset.id), drillsAll())); },
   "plan-random": () => setPlan(randomPlan(drillsAll())),
-  "plan-smart": () => { const s = curSession(); setPlan(smartPlan(drillsAll(), sessionsOf(s.groupId).filter((x) => x.id !== s.id), playersOf(s.groupId).length)); },
-  "plan-redo": () => { const s = curSession(); actions[s.plan.mode === "smart" ? "plan-smart" : "plan-random"](); },
+  "plan-redo": () => actions["plan-random"](),
   "plan-clear": () => { const s = curSession(); s.plan = null; s.planId = ""; commitSession(s); rerenderSession(s.id); },
   swap: (el) => { const s = curSession(), pl = planOf(s); s.plan = pl;
     if (!swapDrill(pl, el.dataset.stage, +el.dataset.i, drillsAll())) return toast("אין עוד תרגילים בשלב הזה"); commitSession(s); rerenderSession(s.id); },
@@ -467,6 +468,13 @@ const actions = {
     await store.save("plans", { ...(draft.id ? store.get("plans", draft.id) : {}), title: draft.title.trim(), stages: draft.stages }); draft = null; toast("התוכנית נשמרה"); go("#/plans");
   },
   "plan-del": async () => { if (!confirm("למחוק את התוכנית? אימונים שנשמרו לא ישתנו.")) return; await store.remove("plans", draft.id); draft = null; go("#/plans"); },
+  fold: (el) => { const k = el.dataset.stage, o = new Set(openStages()); o.has(k) ? o.delete(k) : o.add(k); localStorage.setItem("pivot.lib.open", JSON.stringify([...o])); viewLibrary(); },
+  "note-edit": () => {
+    const s = curSession();
+    openSheet(`<h2>${s.notes ? "עריכת הערה" : "הוספת הערה"}</h2><form id="nf"><div class="field"><label for="nt">הערות לאימון</label><textarea id="nt" rows="6" placeholder="מה עבד, מי התבלט, מה לשפר בפעם הבאה">${esc(s.notes || "")}</textarea></div>
+      <div class="sheet-actions sticky"><button class="btn ball block" type="submit">שמירה</button><button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+    () => { $("#nt").focus(); $("#nf").addEventListener("submit", async (e) => { e.preventDefault(); s.notes = $("#nt").value.trim(); await commitSession(s); closeSheet(); toast("ההערה נשמרה"); route(); }); });
+  },
   "drill-new": (el) => drillForm({}, el.dataset.stage),
   "drill-edit": (el) => drillForm(store.get("drills", el.dataset.id)),
   export: () => {

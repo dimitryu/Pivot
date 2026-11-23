@@ -286,3 +286,10 @@ main > .field:first-child { margin-top: 38px; }
 .mode.ai { border-right-color: var(--floor-deep); background: linear-gradient(135deg, #fff, #eaf0ff); }
 .aibox { background: #eaf0ff; border-radius: 16px; padding: 12px 16px; margin-bottom: 12px; } .aibox b { color: var(--floor-deep); font-family: var(--font-display); font-weight: 400; }
 .aibox p { margin: 4px 0; } .aibox ul { margin: 4px 0 0; padding-inline-start: 20px; }
+
+/* קיפול שלבים בספרייה */
+.fold { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; cursor: pointer; padding: 4px 0; color: inherit; text-align: right; flex: 1; min-height: 44px; }
+.fold .chev { width: 26px; height: 26px; color: var(--sc); display: grid; place-items: center; transition: transform .2s; transform: rotate(90deg); }
+.fold .chev svg { width: 22px; height: 22px; }
+.stage.open .fold .chev { transform: rotate(0); }
+.fold-body[hidden] { display: none; }

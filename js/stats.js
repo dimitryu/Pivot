@@ -82,6 +82,6 @@ export function renderStats(gid, period) {
     ${planned ? card("שלבי האימון", STAGES.map((s) => bar(s.label, ((stageCount[s.k] || 0) / Math.max(...Object.values(stageCount), 1)) * 100, stageCount[s.k] || 0, s.color)).join("")) : ""}
     ${card("איך נבנו האימונים", `<div class="modes">
       <span class="chip">התוכנית שלי: ${modes.mine}</span><span class="chip">הגרלה: ${modes.random}</span>
-      <span class="chip">הצעה חכמה: ${modes.smart}</span><span class="chip">עוזר AI: ${modes.ai}</span><span class="chip">בלי תוכנית: ${modes.none}</span></div>`)}
+      ${modes.smart ? `<span class="chip">הצעה חכמה: ${modes.smart}</span>` : ""}<span class="chip">עוזר AI: ${modes.ai}</span><span class="chip">בלי תוכנית: ${modes.none}</span></div>`)}
     ${stars.length ? card("מצטייני החודש", stars.map(([nm, n]) => bar(esc(nm), 100, "⭐".repeat(Math.min(n, 5)) + (n > 5 ? ` ${n}` : ""), "#f2a900")).join("")) : ""}`;
 }
