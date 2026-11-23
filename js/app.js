@@ -2,13 +2,14 @@ import { store } from "./store.js";
 import { SEED_DRILLS } from "./seed.js";
 import { randomPlan, smartPlan, planFromSaved, swapDrill, snapOf, stageMinutes, stageList, emptyStages } from "./planner.js";
 import { renderStats } from "./stats.js";
+import { aiBuildPlan, aiKey, setAiKey, aiModel, setAiModel, MODELS } from "./ai.js";
 import {
   $, esc, COLORS, ICON, STAGES, STAGE, FOCUS, DAY_SHORT, courtSVG, jersey, avatar, todayStr, fmtDate, fmtShort, monthLabel,
-  lastMonths, daysLabel, scheduleOf, firstName, waLink, debounce, toast, dateInput, openSheet, closeSheet, resizeImage
+  lastMonths, daysLabel, scheduleOf, birthdaysInWeek, firstName, waLink, debounce, toast, dateInput, openSheet, closeSheet, resizeImage
 } from "./lib.js";
 
 const app = $("#app");
-const VERSION = "2.1.1";
+const VERSION = "2.2.0";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -52,6 +53,20 @@ function viewLogin() {
       : `<button class="btn" data-act="signin">התחלה במצב מקומי</button><p style="font-size:15px;opacity:.85">עדיין לא חיברנו ענן, ולכן הנתונים נשמרים רק במכשיר הזה.</p>`}</div>`;
 }
 
+/* ---------- ימי הולדת השבוע ---------- */
+function birthdayCard(g, players, ref = new Date()) {
+  const list = birthdaysInWeek(players, ref); if (!list.length) return "";
+  const sched = scheduleOf(g), today = todayStr();
+  const rows = list.map(({ p, date, age }) => {
+    const dow = date.getDay(), tr = sched.find((x) => x.day === dow);
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const when = iso === today ? "היום!" : `יום ${DAY_SHORT[dow]} ${date.getDate()}.${date.getMonth() + 1}`;
+    const note = tr ? `יש אימון באותו יום${tr.time ? " ב-" + tr.time : ""}` : sched.length ? "אין אימון באותו יום" : "";
+    return `<div class="bd-row">${avatar(p, groupColor(g))}<span class="grow"><b>${esc(p.name)}</b><small>${when}${age > 0 ? ` · גיל ${age}` : ""}${note ? ` · ${note}` : ""}</small></span></div>`;
+  }).join("");
+  return `<section class="bday"><h3>${ICON.cake} ימי הולדת השבוע</h3>${rows}</section>`;
+}
+
 /* ---------- בית ---------- */
 function viewHome() {
   live = true;
@@ -60,7 +75,7 @@ function viewHome() {
     const n = playersOf(g.id).length, last = sessionsOf(g.id)[0];
     return `<button class="group-card" style="--gc:${groupColor(g)}" data-go="#/g/${g.id}">
       <span class="arc"></span><h3>${esc(g.name)}</h3><span class="meta">${esc([g.ages, daysLabel(g)].filter(Boolean).join(" · ")) || "&nbsp;"}</span>
-      <span style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><span class="chip">${n} ילדים</span>${last ? `<span class="chip">אימון אחרון ${fmtShort(last.date)}</span>` : ""}</span></button>`;
+      <span style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><span class="chip">${n} ילדים</span>${birthdaysInWeek(playersOf(g.id)).length ? `<span class="chip warn">${ICON.cake} ${birthdaysInWeek(playersOf(g.id)).length} ימי הולדת השבוע</span>` : ""}${last ? `<span class="chip">אימון אחרון ${fmtShort(last.date)}</span>` : ""}</span></button>`;
   }).join("");
   const empty = `<div class="card empty"><h3>עוד אין קבוצות</h3><p>פתחו קבוצה ראשונה, למשל "כיתות א׳–ב׳", ואז הוסיפו את הילדים.</p><button class="btn ball" data-act="group-new">${ICON.plus} קבוצה חדשה</button></div>`;
   const reminder = !store.isCloud && groups.length ? `<div class="note" style="margin-top:18px">הנתונים נשמרים רק במכשיר הזה. כדאי לגבות מדי פעם בהגדרות.</div>` : "";
@@ -82,7 +97,7 @@ function viewGroup(gid, tab = "players") {
     const rows = players.map((p) => { const r = rate(p.id, gid), st = starsOf(p.id);
       return `<button class="row" data-act="player-edit" data-id="${p.id}">${avatar(p, groupColor(g))}
         <span class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div></span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
-    body = `${newSession}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
+    body = `${birthdayCard(g, players)}${newSession}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
       <button class="btn ghost block" data-act="player-new" style="margin-top:14px">${ICON.plus} הוספת ילד</button>
       <button class="btn small ghost" data-act="group-edit" style="margin:22px auto 0;display:flex">עריכת פרטי הקבוצה</button>`;
   } else if (tab === "sessions") {
@@ -136,7 +151,8 @@ function planBlock(s, editable) {
   const pl = planOf(s);
   if (!pl) return "";
   const minutes = stageMinutes(pl);
-  return `<div class="section-title"><h2>${esc(pl.title)}</h2><span class="chip">${minutes} דק׳</span></div>` +
+  const extra = pl.summary || pl.tips?.length ? `<div class="aibox"><b>עוזר AI</b>${pl.summary ? `<p>${esc(pl.summary)}</p>` : ""}${pl.tips?.length ? `<ul>${pl.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}</div>` : "";
+  return `<div class="section-title"><h2>${esc(pl.title)}</h2><span class="chip">${minutes} דק׳</span></div>${extra}` +
     stageList(pl).map((st) => `<section class="stage" style="--sc:${st.color}"><header><h3>${st.label}</h3>${editable ? `<button class="icon-btn" data-act="add-drill" data-stage="${st.k}" aria-label="הוספת תרגיל">${ICON.plus}</button>` : ""}</header>
       ${st.drills.length ? st.drills.map((d, i) => `<div class="sdrill"><div class="grow"><div class="t">${esc(d.name)} <span class="chip">${d.minutes} דק׳</span>${d.focus ? ` <span class="chip">${FOCUS[d.focus] || ""}</span>` : ""}</div>
         ${d.desc ? `<div class="d">${esc(d.desc)}</div>` : ""}${d.why ? `<div class="why">${esc(d.why)}</div>` : ""}</div>
@@ -152,14 +168,16 @@ function viewSession(sid) {
   const chooser = `<div class="section-title"><h2>תוכנית האימון</h2></div><div class="modes3">
       <button class="mode" data-act="plan-mine"><b>התוכנית שלי</b><span>בחירה מתוכנית ששמרתי</span></button>
       <button class="mode" data-act="plan-random"><b>הגרלה</b><span>תרגיל אקראי מכל שלב</span></button>
-      <button class="mode" data-act="plan-smart"><b>הצעה חכמה</b><span>לפי מה שתורגל לאחרונה</span></button></div>`;
-  const planActions = pl ? `<div class="two" style="margin:14px 0">${pl.mode === "random" || pl.mode === "smart" ? `<button class="btn ghost" data-act="plan-redo">${pl.mode === "random" ? "הגרלה מחדש" : "הצעה אחרת"}</button>` : `<span></span>`}
+      <button class="mode" data-act="plan-smart"><b>הצעה חכמה</b><span>לפי מה שתורגל לאחרונה</span></button>
+      <button class="mode ai" data-act="plan-ai"><b>עוזר AI</b><span>מערך לפי הבקשה שלכם, בשיחה חופשית</span></button></div>`;
+  const planActions = pl ? `<div class="two" style="margin:14px 0">${pl.mode === "random" || pl.mode === "smart" ? `<button class="btn ghost" data-act="plan-redo">${pl.mode === "random" ? "הגרלה מחדש" : "הצעה אחרת"}</button>` : pl.mode === "ai" ? `<button class="btn ghost" data-act="plan-ai-redo">בקשת שינוי מה-AI</button>` : `<span></span>`}
       <button class="btn ghost" data-act="plan-clear">בחירת תוכנית אחרת</button></div>` : "";
   page(hero({ title: fmtDate(s.date), sub: g?.name, back: `#/g/${s.groupId}/sessions`, compact: true }),
     `<div class="card session-head">
       <div class="counter"><b id="cnt">${presentCount(s)}</b><span>מתוך ${players.length} ילדים הגיעו</span></div>
       <div class="bar"><i id="bar" style="width:${players.length ? (presentCount(s) / players.length) * 100 : 0}%"></i></div>
       <div class="field" style="margin:0"><label for="sd">תאריך</label><input id="sd" type="date" value="${s.date}"></div></div>
+    ${birthdayCard(g, players, new Date(s.date + "T12:00:00"))}
     <div class="tiles">${tiles}</div>
     <div class="two" style="margin-top:14px"><button class="btn ghost" data-act="all-on">כולם הגיעו</button><button class="btn ghost" data-act="all-off">איפוס</button></div>
     <div class="field" style="margin-top:20px"><label for="sn">הערות לאימון</label><textarea id="sn" placeholder="מה עבד, מי התבלט, מה לשפר בפעם הבאה">${esc(s.notes || "")}</textarea></div>
@@ -173,6 +191,30 @@ function viewSession(sid) {
 function refreshCounter(s) {
   const n = presentCount(s), total = playersOf(s.groupId).length;
   $("#cnt").textContent = n; $("#bar").style.width = (total ? (n / total) * 100 : 0) + "%";
+}
+
+/* ---------- עוזר AI ---------- */
+function aiSheet(prefill = {}) {
+  const s = curSession(), g = store.get("groups", s.groupId), hasKey = !!aiKey();
+  openSheet(`<h2>עוזר AI לבניית מערך</h2><form id="af">
+    ${hasKey ? "" : `<div class="note" style="margin-bottom:14px">צריך מפתח Anthropic API פעם אחת. הוא נשמר רק במכשיר הזה. מומלץ ליצור מפתח ייעודי עם תקרת הוצאה ב-console.anthropic.com.</div>
+    <div class="field"><label for="ak">מפתח API</label><input id="ak" type="password" autocomplete="off" placeholder="sk-ant-..."></div>`}
+    <div class="field"><label for="ar">מה חשוב לכם באימון הזה?</label><textarea id="ar" placeholder="למשל: לעבוד על מסירות, הרבה ילדים חדשים, חם באולם">${esc(prefill.request)}</textarea></div>
+    <div class="field"><label for="am">משך האימון</label><select id="am">${[30, 45, 60, 75, 90].map((m) => `<option value="${m}" ${m === (prefill.minutes || 60) ? "selected" : ""}>${m} דקות</option>`).join("")}</select></div>
+    <p class="sub" style="color:var(--ink-soft);margin-top:0">נשלחים רק שמות תרגילים, מספר הילדים וסיכום האימונים האחרונים. שמות ילדים והערות לא נשלחים.</p>
+    <div class="sheet-actions sticky"><button class="btn ball block" type="submit" id="ago">בניית המערך</button><button class="btn ghost block" type="button" data-close>ביטול</button></div></form>`,
+  () => $("#af").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if ($("#ak")) { if (!$("#ak").value.trim()) return toast("נא להזין מפתח API"); setAiKey($("#ak").value); }
+    const btn = $("#ago"); btn.disabled = true; btn.textContent = "בונה מערך...";
+    try {
+      const request = $("#ar").value.trim(), minutes = +$("#am").value;
+      const recent = sessionsOf(s.groupId).filter((x) => x.id !== s.id && x.plan).slice(0, 5)
+        .map((x) => `${x.date}: ${Object.values(x.plan.stages || {}).flat().map((d) => d.name).join(", ")}`);
+      const plan = await aiBuildPlan({ drills: drillsAll(), groupName: g?.name, ages: g?.ages, present: presentCount(s) || playersOf(s.groupId).length, minutes, request, recent });
+      closeSheet(); setPlan(plan); toast("המערך מוכן");
+    } catch (er) { btn.disabled = false; btn.textContent = "בניית המערך"; toast(er.message || "הבקשה נכשלה"); }
+  }));
 }
 
 /* ---------- אימון: סיכום לצפייה ---------- */
@@ -259,6 +301,11 @@ function viewSettings() {
       <p class="sub" style="color:var(--ink-soft);margin-top:0">${last ? "גיבוי אחרון: " + new Date(+last).toLocaleDateString("he-IL") : "עוד לא בוצע גיבוי לקובץ"}</p>
       <div class="two"><button class="btn" data-act="export">גיבוי לקובץ</button><button class="btn ghost" data-act="import">שחזור מקובץ</button></div>
       <input id="file" type="file" accept="application/json,.json" class="hidden"></div>
+     <div class="section-title"><h2>עוזר AI</h2></div><div class="card" style="padding:16px">
+      <p style="margin-top:0">${aiKey() ? "מפתח API שמור במכשיר הזה." : "עוד לא הוגדר מפתח. אפשר להוסיף אותו כאן או בפעם הראשונה שבוחרים עוזר AI באימון."}</p>
+      <div class="field"><label for="sk">מפתח API</label><input id="sk" type="password" autocomplete="off" placeholder="${aiKey() ? "•••••••• (השאירו ריק כדי לא לשנות)" : "sk-ant-..."}"></div>
+      <div class="field"><label for="smod">מודל</label><select id="smod">${MODELS.map(([v, l]) => `<option value="${v}" ${v === aiModel() ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="two"><button class="btn" data-act="ai-save">שמירה</button>${aiKey() ? `<button class="btn danger" data-act="ai-clear">הסרת המפתח</button>` : "<span></span>"}</div></div>
      <div class="section-title"><h2>חשבון</h2></div><div class="card" style="padding:16px">
       <div id="install" class="${deferredInstall ? "" : "hidden"}" style="margin-bottom:12px"><button class="btn ball block" data-act="install">התקנה על המסך הראשי</button></div>
       <button class="btn danger block" data-act="signout">${store.isCloud ? "יציאה מהחשבון" : "יציאה מהמצב המקומי"}</button></div>
@@ -393,6 +440,10 @@ const actions = {
   "all-off": () => { const s = curSession(); s.attendance = {}; commitSession(s); rerenderSession(s.id); },
   "session-save": async () => { const s = curSession(); pendingSave?.flush?.(); await commitSession(s); toast("האימון נשמר"); go(`#/summary/${s.id}`); },
   "session-del": async () => { const s = curSession(); if (!confirm("למחוק את האימון הזה?")) return; await store.remove("sessions", s.id); go(`#/g/${s.groupId}/sessions`); },
+  "plan-ai": () => aiSheet(),
+  "plan-ai-redo": () => aiSheet({ request: curSession().plan?.request, minutes: curSession().plan?.minutes }),
+  "ai-save": () => { const k = $("#sk").value.trim(); if (k) setAiKey(k); setAiModel($("#smod").value); toast("הגדרות ה-AI נשמרו"); viewSettings(); },
+  "ai-clear": () => { setAiKey(""); toast("המפתח הוסר מהמכשיר"); viewSettings(); },
   "plan-mine": () => {
     const plans = store.all("plans").filter((p) => p.stages);
     if (!plans.length) return toast("עוד אין תוכניות שמורות. אפשר ליצור בלשונית תוכניות.");

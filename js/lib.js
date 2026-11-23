@@ -25,6 +25,7 @@ export const ICON = {
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   star: '<svg viewBox="0 0 24 24" width="18" height="18" fill="#f2a900" stroke="#f2a900" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>',
+  cake: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16v-6a3 3 0 00-3-3H7a3 3 0 00-3 3zM4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 0M12 11V7M12 3.5c1 1 1 2 0 3-1-1-1-2 0-3z"/></svg>',
   camera: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>'
 };
@@ -91,4 +92,23 @@ export async function resizeImage(file, size = 320) {
   const c = Object.assign(document.createElement("canvas"), { width: size, height: size });
   c.getContext("2d").drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, size, size);
   return c.toDataURL("image/jpeg", 0.8);
+}
+
+/* ---------- ימי הולדת ---------- */
+// שבוע = ראשון עד שבת, סביב התאריך שנתנו
+export function weekRange(ref = new Date()) {
+  const s = new Date(ref); s.setHours(12, 0, 0, 0); s.setDate(s.getDate() - s.getDay());
+  const e = new Date(s); e.setDate(s.getDate() + 6); return [s, e];
+}
+export function birthdaysInWeek(players, ref = new Date()) {
+  const [s, e] = weekRange(ref), out = [];
+  for (const p of players) {
+    if (!p.birth) continue;
+    const [y, m, d] = p.birth.split("-").map(Number);
+    for (const yr of new Set([s.getFullYear(), e.getFullYear()])) {
+      const dt = new Date(yr, m - 1, d, 12);
+      if (dt >= s && dt <= e) { out.push({ p, date: dt, age: yr - y }); break; }
+    }
+  }
+  return out.sort((a, b) => a.date - b.date);
 }
