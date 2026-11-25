@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.0.3";
+const VERSION = "3.0.4";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -101,7 +101,7 @@ function viewGroup(gid, tab = "players") {
   if (tab === "players") {
     const rows = players.map((p) => { const r = rate(p.id, gid), st = starsOf(p.id);
       return `<button class="row" data-go="#/p/${p.id}">${avatar(p, groupColor(g))}
-        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div></span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
+        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div>${missingChips(p)}</span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
     body = `${birthdayCard(g, players)}${newSession}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
       <button class="btn ghost block" data-act="player-new" style="margin-top:14px">${ICON.plus} הוספת ילד</button>
       <div class="two" style="margin-top:22px"><button class="btn small ghost" data-act="group-ics">${ICON.cal} ימי האימון ליומן</button><button class="btn small ghost" data-act="group-edit">עריכת פרטי הקבוצה</button></div>`;
@@ -541,6 +541,10 @@ document.addEventListener("change", async (e) => {
 
 
 /* ---------- יכולות חדשות: התראת בריאות, תזכורות, משחקים, פרופיל ילד, שיתוף ---------- */
+function missingChips(p) {
+  const m = [!p.birth && "תאריך לידה", !p.parentName && "שם הורה", !p.parentPhone && "טלפון הורה"].filter(Boolean);
+  return m.length ? `<div class="miss">${m.map((x) => `<span>חסר: ${x}</span>`).join("")}</div>` : "";
+}
 function healthBanner(players) {
   const list = players.filter((p) => p.health);
   if (!list.length) return "";

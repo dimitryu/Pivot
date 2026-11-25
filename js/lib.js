@@ -51,10 +51,10 @@ export const courtSVG = (flip = false) => `<svg class="court" viewBox="0 0 400 1
 export const jersey = (num, color) => `<svg class="jersey" viewBox="0 0 48 46" aria-hidden="true">
   <path d="M15 4 L5 10 L9 20 L13 18 V42 H35 V18 L39 20 L43 10 L33 4 C31 8 27 9.5 24 9.5 C21 9.5 17 8 15 4Z" fill="${color}"/>
   <path d="M15 4 C17 8 21 9.5 24 9.5 C27 9.5 31 8 33 4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="2"/>
-  <text x="24" y="33" text-anchor="middle" font-size="14" fill="#fff" font-family="Secular One, sans-serif">${esc(num || "")}</text></svg>`;
+  ${String(num ?? "").trim() === "" ? "" : `<text x="24" y="33" text-anchor="middle" font-size="14" fill="#fff" font-family="Secular One, sans-serif">${esc(num)}</text>`}</svg>`;
 /* תמונת הילד אם יש, אחרת חולצה עם מספר */
 /* תמונה עגולה, והמספר בתוך חולצה קטנה בפינה */
-export const shirtPhoto = (p, color) => `<span class="av"><img src="${p.photo}" alt="">${p.number ? `<span class="mini">${jersey(p.number, color)}</span>` : ""}</span>`;
+export const shirtPhoto = (p, color) => `<span class="av"><img src="${p.photo}" alt="">${String(p.number ?? "").trim() !== "" ? `<span class="mini">${jersey(p.number, color)}</span>` : ""}</span>`;
 export const avatar = (p, color, shirt = false) => (shirt && p?.photo ? shirtPhoto(p, color) : p?.photo
   ? `<span class="av"><img src="${p.photo}" alt="">${p.number ? `<i>${esc(p.number)}</i>` : ""}</span>`
   : jersey(p?.number, color));
