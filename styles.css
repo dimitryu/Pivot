@@ -380,8 +380,8 @@ main > .field:first-child { margin-top: 38px; }
 .count { margin: 4px 4px 10px; font-weight: 800; font-size: 17px; color: var(--ink); }
 .foldall { display: flex; gap: 8px; justify-content: flex-end; margin: 0 0 10px; }
 .fold-card .sfold { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: transparent; padding: 0; margin: 0 0 8px; min-height: 36px; font: inherit; font-size: 19px; font-weight: 800; color: var(--ink); text-align: start; cursor: pointer; }
-.fold-card .sfold svg { width: 22px; height: 22px; flex: none; transform: rotate(90deg); transition: transform .2s; color: var(--floor); }
-.fold-card.closed .sfold { margin-bottom: 0; } .fold-card.closed .sfold svg { transform: rotate(180deg); } .fold-card.closed .sbody { display: none; }
+.fold-card .sfold svg { width: 22px; height: 22px; flex: none; transform: rotate(0); transition: transform .2s; color: var(--floor); }
+.fold-card.closed .sfold { margin-bottom: 0; } .fold-card.closed .sfold svg { transform: rotate(90deg); } .fold-card.closed .sbody { display: none; }
 
 .ver { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 8px; z-index: 200; font: 700 11px/1 var(--font-body); color: #fff; background: rgba(8, 26, 84, .55); padding: 4px 8px; border-radius: 999px; pointer-events: none; direction: ltr; }
 .paynav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; } .paynav .btn { padding: 6px 10px; } .paynav svg { width: 20px; height: 20px; }
@@ -389,3 +389,7 @@ main > .field:first-child { margin-top: 38px; }
 .ptotal { display: grid; gap: 6px; background: var(--paper); border-radius: 14px; padding: 10px 12px; } .ptotal > div { display: flex; justify-content: space-between; font-size: 16px; } .ptotal .pay { font-size: 20px; color: var(--floor-deep); font-weight: 800; }
 
 .plegend { margin: 12px 0 0; display: grid; gap: 2px; font-size: 15px; } .plegend > b { margin-bottom: 2px; } .plegend div { display: flex; justify-content: space-between; padding: 4px 8px; border-radius: 8px; } .plegend div.on { background: #dfe9ff; font-weight: 800; color: var(--floor-deep); }
+
+.pnote { margin: 10px 0 0; font-size: 13px; color: var(--ink-soft); } .pnote summary { cursor: pointer; padding: 6px 0; font-weight: 700; } .pnote .plegend { font-size: 13px; margin: 0; } .pnote .plegend div { padding: 2px 8px; }
+
+.paynav svg { transform: rotate(var(--r, 0deg)); }

@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.2.0";
+const VERSION = "3.2.2";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
