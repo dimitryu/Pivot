@@ -62,8 +62,20 @@ export const avatar = (p, color, shirt = false) => (shirt && p?.photo ? shirtPho
 /* ---------- תאריכים ---------- */
 const pad = (n) => String(n).padStart(2, "0");
 export const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-export const fmtDate = (s) => (s ? new Intl.DateTimeFormat("he-IL", { weekday: "long", day: "numeric", month: "long" }).format(new Date(s + "T12:00:00")) : "");
-export const fmtShort = (s) => (s ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric" }).format(new Date(s + "T12:00:00")) : "");
+export const fmtDate = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "");
+export const fmtShort = fmtDate;
+export const dmy = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+/* שדות תאריך תמיד בתצוגה dd/mm/yyyy, בלי קשר לשפת המכשיר */
+export function enhanceDates(root = document) {
+  root.querySelectorAll("input[type=date]:not([data-dw])").forEach((inp) => {
+    inp.dataset.dw = "1";
+    const w = document.createElement("span"), t = document.createElement("span"); w.className = "dwrap"; t.className = "dtxt";
+    inp.parentNode.insertBefore(w, inp); w.append(t, inp);
+    const paint = () => { t.textContent = inp.value ? fmtDate(inp.value) : "dd/mm/yyyy"; t.classList.toggle("empty", !inp.value); };
+    paint(); ["change", "input"].forEach((ev) => inp.addEventListener(ev, paint));
+    inp.addEventListener("click", () => { try { inp.showPicker?.(); } catch { /* לא נתמך */ } });
+  });
+}
 export const monthKey = (s) => String(s).slice(0, 7);
 export const monthLabel = (k) => new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric" }).format(new Date(k + "-15T12:00:00"));
 export function lastMonths(n = 12) {

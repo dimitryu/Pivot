@@ -6,7 +6,7 @@ import { aiBuildPlan, aiKey, setAiKey, aiModel, setAiModel, MODELS } from "./ai.
 import {
   $, esc, COLORS, ICON, STAGES, STAGE, FOCUS, DAY_SHORT, courtSVG, jersey, avatar, todayStr, fmtDate, fmtShort, monthLabel,
   lastMonths, daysLabel, scheduleOf, birthdaysInWeek, firstName, waLink, debounce, toast, dateInput, openSheet, closeSheet, resizeImage,
-  BADGES, MATCH_KINDS, ageOf, avgOf, weekdayOf
+  BADGES, MATCH_KINDS, ageOf, avgOf, weekdayOf, dmy, enhanceDates
 } from "./lib.js";
 import {
   runTimer, quickTimerSheet, stepsOf, assessmentsOf, assessSheet, badgeSheet, badgeDot, teamsSheet, shareSheet, sessionMessage, starMessage,
@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.2.2";
+const VERSION = "3.2.3";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -66,7 +66,7 @@ function birthdayCard(g, players, ref = new Date()) {
   const rows = list.map(({ p, date, age }) => {
     const dow = date.getDay(), tr = sched.find((x) => x.day === dow);
     const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const when = iso === today ? "היום!" : `יום ${DAY_SHORT[dow]} ${date.getDate()}.${date.getMonth() + 1}`;
+    const when = iso === today ? "היום!" : `יום ${DAY_SHORT[dow]} ${dmy(date)}`;
     const note = tr ? `יש אימון באותו יום${tr.time ? " ב-" + tr.time : ""}` : sched.length ? "אין אימון באותו יום" : "";
     return `<div class="bd-row">${avatar(p, groupColor(g))}<span class="grow"><b>${esc(p.name)}</b><small>${when}${age > 0 ? ` · גיל ${age}` : ""}${note ? ` · ${note}` : ""}</small></span></div>`;
   }).join("");
@@ -311,7 +311,7 @@ function viewSettings() {
   page(hero({ title: "הגדרות", sub: store.isCloud ? store.user?.email : "מצב מקומי (נתונים במכשיר בלבד)" }),
     `<div class="section-title"><h2>גיבוי</h2></div><div class="card" style="padding:16px">
       <p style="margin-top:0">${store.isCloud ? "הנתונים נשמרים בענן ומסתנכרנים בין הטלפון והמחשב. גיבוי לקובץ הוא ביטוח נוסף." : "הנתונים נשמרים רק במכשיר הזה. גבו לקובץ כדי לא לאבד אותם."}</p>
-      <p class="sub" style="color:var(--ink-soft);margin-top:0">${last ? "גיבוי אחרון: " + new Date(+last).toLocaleDateString("he-IL") : "עוד לא בוצע גיבוי לקובץ"}</p>
+      <p class="sub" style="color:var(--ink-soft);margin-top:0">${last ? "גיבוי אחרון: " + dmy(new Date(+last)) : "עוד לא בוצע גיבוי לקובץ"}</p>
       <div class="two"><button class="btn" data-act="export">גיבוי לקובץ</button><button class="btn ghost" data-act="import">שחזור מקובץ</button></div>
       <input id="file" type="file" accept="application/json,.json" class="hidden"></div>
      <div class="section-title"><h2>עוזר AI</h2></div><div class="card" style="padding:16px">
@@ -535,6 +535,7 @@ const actions = {
   "ws-leave": async (el) => { if (!confirm("לעזוב את המרחב המשותף?")) return; if (store.workspace.base === el.dataset.base) await store.switchWorkspace(store.user.uid); await store.share.leave(el.dataset.base); fillShareBox(); }
 };
 
+{ let q = 0; new MutationObserver(() => { if (!q) q = requestAnimationFrame(() => { q = 0; enhanceDates(); }); }).observe(document.body, { childList: true, subtree: true }); enhanceDates(); }
 document.body.insertAdjacentHTML("beforeend", `<div class="ver" aria-hidden="true">v${VERSION}</div>`);
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-close]")) return closeSheet();

@@ -1,6 +1,6 @@
 // סטטיסטיקות לקבוצה לפי תקופה: נוכחות, מגמה חודשית, ימי שבוע, תרגילים, תחומים ומצטיינים.
 import { store } from "./store.js";
-import { esc, ICON, FOCUS, STAGES, STAGE, monthKey, monthLabel, weekdayOf, DAY_SHORT, todayStr } from "./lib.js";
+import { esc, ICON, fmtDate, FOCUS, STAGES, STAGE, monthKey, monthLabel, weekdayOf, DAY_SHORT, todayStr } from "./lib.js";
 
 export const PERIODS = [["all", "כל הזמן"], ["month", "החודש"], ["90", "3 חודשים"], ["custom", "מותאם"]];
 
@@ -29,7 +29,7 @@ export function payCard(card, g, players, month) {
   const st = PAY_STATUS[g.payStatus], pct = g.payPct !== undefined && g.payPct !== "" ? +g.payPct : st?.pct;
   const rows = players.map((p) => { const pw = +p.perWeek || 2, fee = feeOf(pw), fr = monthFraction(p.startDate, month); return { p, pw, fee, fr, amt: fee * fr }; }).filter((r) => r.fr > 0);
   const total = rows.reduce((a, r) => a + r.amt, 0), coach = pct ? (total * pct) / 100 : 0;
-  return card("חישוב תשלום", `<div class="paynav"><button class="btn small ghost" data-act="pay-month" data-d="-1" aria-label="חודש קודם" style="--r:-90deg">${ICON.chev}</button><b>${esc(monthLabel(month))}</b><button class="btn small ghost" data-act="pay-month" data-d="1" aria-label="חודש הבא" style="--r:90deg">${ICON.chev}</button></div>
+  return card("חישוב תשלום", `<div class="paynav"><button class="btn small ghost" data-act="pay-month" data-d="-1" aria-label="חודש קודם">${ICON.chev}</button><b>${esc(monthLabel(month))}</b><button class="btn small ghost" data-act="pay-month" data-d="1" aria-label="חודש הבא">${ICON.chev}</button></div>
     <div class="two"><div class="field"><label for="pst">סטטוס המאמן</label><select id="pst" data-act-change="pay-status"><option value="">בחרו סטטוס</option>${Object.entries(PAY_STATUS).map(([k, v]) => `<option value="${k}" ${g.payStatus === k ? "selected" : ""}>${v.label}</option>`).join("")}</select></div>
     <div class="field"><label for="ppc">אחוז מהכנסה</label><input id="ppc" type="number" inputmode="decimal" min="0" max="100" data-act-change="pay-pct" value="${pct ?? ""}"></div></div>
     ${rows.length ? `<div class="ptable">${[[2, 250], [1, 200]].map(([w, fee]) => { const g2 = rows.filter((r) => (w === 2 ? r.pw >= 2 : r.pw < 2)); const sum = g2.reduce((a, r) => a + r.amt, 0), part = g2.filter((r) => r.fr < 1).length;
@@ -103,7 +103,7 @@ export function renderStats(gid, period, custom = {}, payMonth = todayStr().slic
     <div class="kpis"><div class="kpi"><b>${all.length}</b><span>אימונים</span></div>
       <div class="kpi"><b>${avgPresent.toFixed(1).replace(".0", "")}</b><span>ילדים בממוצע</span></div>
       <div class="kpi"><b>${Math.round(avgPct)}%</b><span>נוכחות</span></div></div>
-    ${best ? `<p class="note">האימון הכי מלא: ${presentOf(best)} ילדים, ${new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long" }).format(new Date(best.date + "T12:00:00"))}.</p>` : ""}
+    ${best ? `<p class="note">האימון הכי מלא: ${presentOf(best)} ילדים, ${fmtDate(best.date)}.</p>` : ""}
     ${missing.length ? card("חסרים ב-3 האימונים האחרונים", `<p class="sub" style="margin:0 0 6px">שווה ליצור קשר עם ההורים:</p>${missing.map((p) => `<span class="chip warn">${esc(p.name)}</span> `).join("")}`) : ""}
     ${card("נוכחות לפי ילד", byChild.map(({ p, n }) => bar(esc(p.name), (n / all.length) * 100, `${n}/${all.length}`)).join(""))}
     ${monthRows.length > 1 ? card("מגמה לפי חודשים", `<div class="trend">${trend}</div>`) : ""}
