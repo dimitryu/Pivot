@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.2.3";
+const VERSION = "3.2.4";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -411,9 +411,17 @@ function playerForm(gid, p = {}) {
 /* ---------- ניתוב ---------- */
 function go(h) { if (location.hash === h) route(); else location.hash = h; }
 let ready = false;
+/* חד פעמי: כל הילדים הקיימים מתחילים להתאמן מ-01/11/2026 */
+function migrateStartDate() {
+  const key = "pivot.mig.start20261101." + (store.workspace.base || store.user.uid), players = store.all("players");
+  if (localStorage.getItem(key) || !players.length) return;
+  localStorage.setItem(key, "1");
+  players.forEach((p) => store.save("players", { ...p, startDate: "2026-11-01" }));
+}
 function route() {
   if (!ready) return;
   if (!store.user) return viewLogin();
+  migrateStartDate();
   const [, a, b, c] = (location.hash || "#/").split("/");
   const y = window.scrollY;
   if (a === "g" && b) viewGroup(b, ["sessions", "matches", "stars", "stats"].includes(c) ? c : "players");
