@@ -404,3 +404,5 @@ main > .field:first-child { margin-top: 38px; }
 .field input, .field select, .field textarea { padding: 8px 12px; min-height: 42px; font-size: 15px; border-radius: 10px; }
 .field textarea { min-height: 64px; }
 .dwrap { padding: 8px 12px; min-height: 42px; border-radius: 10px; } .dtxt { padding: 0; margin: 0; line-height: 22px; font-size: 15px; }
+
+.paynav .btn:disabled { opacity: .3; cursor: default; }

@@ -19,24 +19,28 @@ export const PAY_STATUS = {
 };
 export const feeOf = (perWeek) => (+perWeek >= 2 ? 250 : 200);
 const money = (n) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(Math.round(n)) + " ₪";
+/* חלק החודש ששולם עבור הילד. בחודש הנוכחי סופרים רק עד היום, כי עוד לא ידוע מה יקרה בהמשך */
 export function monthFraction(startDate, month) {
   const [y, m] = month.split("-").map(Number), dim = new Date(y, m, 0).getDate(), first = `${month}-01`, last = `${month}-${String(dim).padStart(2, "0")}`;
-  if (!startDate || startDate <= first) return 1;
-  if (startDate > last) return 0;
-  return (dim - +startDate.slice(8, 10) + 1) / dim;
+  const now = todayStr(), isNow = month === now.slice(0, 7), end = isNow ? +now.slice(8, 10) : dim;
+  if (startDate && startDate > last) return 0;
+  const from = !startDate || startDate <= first ? 1 : +startDate.slice(8, 10);
+  if (from > end) return 0;
+  return (end - from + 1) / dim;
 }
 export function payCard(card, g, players, month) {
-  const st = PAY_STATUS[g.payStatus], pct = g.payPct !== undefined && g.payPct !== "" ? +g.payPct : st?.pct;
+  const isNow = month >= todayStr().slice(0, 7), st = PAY_STATUS[g.payStatus], pct = g.payPct !== undefined && g.payPct !== "" ? +g.payPct : st?.pct;
   const rows = players.map((p) => { const pw = +p.perWeek || 2, fee = feeOf(pw), fr = monthFraction(p.startDate, month); return { p, pw, fee, fr, amt: fee * fr }; }).filter((r) => r.fr > 0);
   const total = rows.reduce((a, r) => a + r.amt, 0), coach = pct ? (total * pct) / 100 : 0;
-  return card("חישוב תשלום", `<div class="paynav"><button class="btn small ghost" data-act="pay-month" data-d="-1" aria-label="חודש קודם">${ICON.chev}</button><b>${esc(monthLabel(month))}</b><button class="btn small ghost" data-act="pay-month" data-d="1" aria-label="חודש הבא">${ICON.chev}</button></div>
+  return card("חישוב תשלום", `<div class="paynav"><button class="btn small ghost" data-act="pay-month" data-d="-1" aria-label="חודש קודם">${ICON.chev}</button><b>${esc(monthLabel(month))}</b><button class="btn small ghost" data-act="pay-month" data-d="1" aria-label="חודש הבא" ${isNow ? "disabled" : ""}>${ICON.chev}</button></div>
     <div class="two"><div class="field"><label for="pst">סטטוס המאמן</label><select id="pst" data-act-change="pay-status"><option value="">בחרו סטטוס</option>${Object.entries(PAY_STATUS).map(([k, v]) => `<option value="${k}" ${g.payStatus === k ? "selected" : ""}>${v.label}</option>`).join("")}</select></div>
     <div class="field"><label for="ppc">אחוז מהכנסה</label><input id="ppc" type="number" inputmode="decimal" min="0" max="100" data-act-change="pay-pct" value="${pct ?? ""}"></div></div>
+    ${isNow ? `<p class="sub" style="margin:0 0 8px">חישוב יחסי עד היום (${fmtDate(todayStr())}). הסכום יגדל ככל שהחודש מתקדם.</p>` : ""}
     ${rows.length ? `<div class="ptable">${[[2, 250], [1, 200]].map(([w, fee]) => { const g2 = rows.filter((r) => (w === 2 ? r.pw >= 2 : r.pw < 2)); const sum = g2.reduce((a, r) => a + r.amt, 0), part = g2.filter((r) => r.fr < 1).length;
-      return `<div class="prow"><span>${g2.length === 1 ? "ילד אחד" : g2.length + " ילדים"}</span><small>${w} בשבוע · ${fee} ₪ לילד${part ? ` · ${part} יחסי` : ""}</small><b>${money(sum)}</b></div>`; }).join("")}</div>` : `<p class="sub">אין ילדים פעילים בחודש הזה.</p>`}
+      return `<div class="prow"><span>${g2.length === 1 ? "ילד אחד" : g2.length + " ילדים"}</span><small>${w} בשבוע · ${fee} ₪ לילד${part && !isNow ? ` · ${part} יחסי` : ""}</small><b>${money(sum)}</b></div>`; }).join("")}</div>` : `<p class="sub">אין ילדים פעילים בחודש הזה.</p>`}
     <div class="ptotal"><div><span>הכנסות הקבוצה</span><b>${money(total)}</b></div>${pct ? `<div class="pay"><span>התשלום למאמן (${pct}%)</span><b>${money(coach)}</b></div>` : `<p class="sub" style="margin:6px 0 0">בחרו סטטוס כדי לחשב.</p>`}</div>
     <details class="pnote"><summary>אחוזים לפי סטטוס</summary><div class="plegend">${Object.entries(PAY_STATUS).map(([k, v]) => `<div class="${g.payStatus === k ? "on" : ""}"><span>${v.label}</span><b>${v.pct}%</b></div>`).join("")}</div></details>
-    <p class="sub" style="margin:8px 0 0;font-size:13px">מחיר חודשי לילד: 200 ₪ לאימון בשבוע, 250 ₪ לשני אימונים או יותר. ילד שהתחיל באמצע החודש משלם יחסית לימים שנותרו.</p>`);
+    <p class="sub" style="margin:8px 0 0;font-size:13px">מחיר חודשי לילד: 200 ₪ לאימון בשבוע, 250 ₪ לשני אימונים או יותר. ילד שהתחיל באמצע החודש משלם יחסית לימים שנותרו. אי אפשר לחשב חודשים עתידיים.</p>`);
 }
 const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const bar = (label, pct, text, color = "var(--floor)") =>

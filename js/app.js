@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.2.5";
+const VERSION = "3.2.6";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -512,7 +512,7 @@ const actions = {
     closed ? set.add(sec.dataset.k) : set.delete(sec.dataset.k); localStorage.setItem("pivot.stat.closed", JSON.stringify([...set])); },
   "stat-all": (el) => { const close = el.dataset.v === "close", secs = [...document.querySelectorAll(".fold-card")];
     secs.forEach((x) => x.classList.toggle("closed", close)); localStorage.setItem("pivot.stat.closed", JSON.stringify(close ? secs.map((x) => x.dataset.k) : [])); },
-  "pay-month": (el) => { const [y, m] = payMonth.split("-").map(Number), d = new Date(y, m - 1 + +el.dataset.d, 1); payMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; route(); },
+  "pay-month": (el) => { const [y, m] = payMonth.split("-").map(Number), d = new Date(y, m - 1 + +el.dataset.d, 1); payMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; if (payMonth > todayStr().slice(0, 7)) payMonth = todayStr().slice(0, 7); route(); },
   "timer-run": () => runTimer(stepsOf(planOf(curSession()))),
   "timer-quick": () => quickTimerSheet(),
   teams: () => { const s = curSession(), g = store.get("groups", s.groupId), all = playersOf(s.groupId), here = all.filter((p) => s.attendance?.[p.id]); teamsSheet(here.length >= 2 ? here : all, groupColor(g)); },
