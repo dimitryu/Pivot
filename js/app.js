@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.0.4";
+const VERSION = "3.1.0";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -101,8 +101,8 @@ function viewGroup(gid, tab = "players") {
   if (tab === "players") {
     const rows = players.map((p) => { const r = rate(p.id, gid), st = starsOf(p.id);
       return `<button class="row" data-go="#/p/${p.id}">${avatar(p, groupColor(g))}
-        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}</div>${missingChips(p)}</span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
-    body = `${birthdayCard(g, players)}${newSession}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
+        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}${p.perWeek ? ` · ${p.perWeek} בשבוע` : ""}</div>${missingChips(p)}</span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
+    body = `${birthdayCard(g, players)}${newSession}${players.length ? `<p class="count">${players.length === 1 ? "ילד אחד" : players.length + " ילדים"} בקבוצה</p>` : ""}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
       <button class="btn ghost block" data-act="player-new" style="margin-top:14px">${ICON.plus} הוספת ילד</button>
       <div class="two" style="margin-top:22px"><button class="btn small ghost" data-act="group-ics">${ICON.cal} ימי האימון ליומן</button><button class="btn small ghost" data-act="group-edit">עריכת פרטי הקבוצה</button></div>`;
   } else if (tab === "matches") {
@@ -378,8 +378,10 @@ function playerForm(gid, p = {}) {
         <button class="btn small ghost" type="button" id="prm">הסרה</button></div>
         <input id="fcam" type="file" accept="image/*" capture="user" class="hidden"><input id="fgal" type="file" accept="image/*" class="hidden"></div>
       <div class="two" style="grid-template-columns:2fr 1fr"><div class="field"><label for="pn">שם מלא</label><input id="pn" required value="${esc(p.name)}"></div>
-      <div class="field"><label for="pm">מספר חולצה</label><input id="pm" type="number" inputmode="numeric" min="0" max="99" value="${esc(p.number)}"></div></div>
+      <div class="field"><label for="pm">מספר חולצה</label><input id="pm" type="number" inputmode="numeric" min="0" max="99" value="${esc(p.number)}" placeholder="ללא"></div></div>
       <div class="field"><label for="pb">תאריך לידה</label><input id="pb" type="date" value="${esc(p.birth)}"></div>
+      <div class="two"><div class="field"><label for="psd">התחיל להתאמן ב-</label><input id="psd" type="date" value="${esc(p.id ? p.startDate : p.startDate || todayStr())}"></div>
+      <div class="field"><label for="ppw">פעמים בשבוע</label><select id="ppw"><option value="">לא צוין</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(p.perWeek) === String(n) ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
       <div class="two"><div class="field"><label for="pr">שם ההורה</label><input id="pr" value="${esc(p.parentName)}"></div>
       <div class="field"><label for="pp">טלפון ההורה</label><input id="pp" type="tel" inputmode="tel" value="${esc(p.parentPhone)}" placeholder="050-0000000"></div></div>
       <div class="field"><label for="ph">בריאות ורגישויות</label><textarea id="ph" placeholder="אסתמה, אלרגיה, תרופות">${esc(p.health)}</textarea></div>
@@ -396,7 +398,7 @@ function playerForm(gid, p = {}) {
       try { photo = await resizeImage(f); paint(); } catch { toast("לא הצלחנו לקרוא את התמונה"); } e.target.value = "";
     });
     $("#pf").addEventListener("submit", async (e) => { e.preventDefault();
-      try { await store.save("players", { ...p, groupId: gid, photo, name: $("#pn").value.trim(), number: $("#pm").value, birth: $("#pb").value, parentName: $("#pr").value.trim(), parentPhone: $("#pp").value.trim(), health: $("#ph").value.trim(), notes: $("#pt2").value.trim(), createdAt: p.createdAt || Date.now() }); closeSheet(); }
+      try { await store.save("players", { ...p, groupId: gid, photo, name: $("#pn").value.trim(), number: $("#pm").value, birth: $("#pb").value, startDate: $("#psd").value, perWeek: $("#ppw").value, parentName: $("#pr").value.trim(), parentPhone: $("#pp").value.trim(), health: $("#ph").value.trim(), notes: $("#pt2").value.trim(), createdAt: p.createdAt || Date.now() }); closeSheet(); }
       catch (er) { toast("השמירה נכשלה: " + (er.message || er)); } });
     $("#pd")?.addEventListener("click", async () => {
       if (!confirm(`להסיר את ${p.name}? נוכחות עבר תישמר באימונים.`)) return;
@@ -497,6 +499,10 @@ const actions = {
   },
   import: () => $("#file").click(),
   install: async () => { deferredInstall?.prompt(); deferredInstall = null; },
+  "stat-fold": (el) => { const sec = el.closest(".fold-card"), closed = sec.classList.toggle("closed"), set = new Set(JSON.parse(localStorage.getItem("pivot.stat.closed") || "[]"));
+    closed ? set.add(sec.dataset.k) : set.delete(sec.dataset.k); localStorage.setItem("pivot.stat.closed", JSON.stringify([...set])); },
+  "stat-all": (el) => { const close = el.dataset.v === "close", secs = [...document.querySelectorAll(".fold-card")];
+    secs.forEach((x) => x.classList.toggle("closed", close)); localStorage.setItem("pivot.stat.closed", JSON.stringify(close ? secs.map((x) => x.dataset.k) : [])); },
   "timer-run": () => runTimer(stepsOf(planOf(curSession()))),
   "timer-quick": () => quickTimerSheet(),
   teams: () => { const s = curSession(), g = store.get("groups", s.groupId), all = playersOf(s.groupId), here = all.filter((p) => s.attendance?.[p.id]); teamsSheet(here.length >= 2 ? here : all, groupColor(g)); },
@@ -542,7 +548,7 @@ document.addEventListener("change", async (e) => {
 
 /* ---------- יכולות חדשות: התראת בריאות, תזכורות, משחקים, פרופיל ילד, שיתוף ---------- */
 function missingChips(p) {
-  const m = [!p.birth && "תאריך לידה", !p.parentName && "שם הורה", !p.parentPhone && "טלפון הורה"].filter(Boolean);
+  const m = [!p.birth && "תאריך לידה", !p.startDate && "תאריך התחלה", !p.perWeek && "פעמים בשבוע", !p.parentName && "שם הורה", !p.parentPhone && "טלפון הורה"].filter(Boolean);
   return m.length ? `<div class="miss">${m.map((x) => `<span>חסר: ${x}</span>`).join("")}</div>` : "";
 }
 function healthBanner(players) {
@@ -598,7 +604,7 @@ function viewPlayer(pid) {
   const r = rate(pid, p.groupId), age = ageOf(p.birth), ss = sessionsOf(p.groupId);
   const sug = []; const has = (t) => bs.some((b) => b.type === t);
   if (ss.length >= 4 && r === 100 && !has("attend")) sug.push("attend");
-  if (p.createdAt && Date.now() - p.createdAt < 30 * 864e5 && !has("newbie")) sug.push("newbie");
+  if ((p.startDate ? new Date(p.startDate + "T12:00:00").getTime() : p.createdAt) && Date.now() - (p.startDate ? new Date(p.startDate + "T12:00:00").getTime() : p.createdAt) < 30 * 864e5 && !has("newbie")) sug.push("newbie");
   if (last && prev && avgOf(last.skills) - avgOf(prev.skills) >= 0.5 && !has("improve")) sug.push("improve");
   const graph = () => {
     if (as.length < 2) return `<p class="sub" style="margin:0">הוסיפו לפחות שתי הערכות בזמנים שונים כדי לראות גרף התקדמות.</p>`;
@@ -612,6 +618,7 @@ function viewPlayer(pid) {
     return `<div class="skill"><span>${FOCUS[k]}</span><span class="dots">${[1, 2, 3, 4, 5].map((v) => `<i class="${v <= last.skills[k] ? "on" : ""}" style="--c:${col}"></i>`).join("")}</span><small class="${d > 0 ? "up" : d < 0 ? "down" : ""}">${d > 0 ? "+" + d : d < 0 ? d : ""}</small></div>`; }).join("") : "";
   page(hero({ title: p.name, sub: [g?.name, age != null ? "גיל " + age : ""].filter(Boolean).join(" · "), back: `#/g/${p.groupId}`, compact: true }),
     `<div class="pcard">${avatar(p, col)}<div class="kpis" style="margin:0;flex:1"><div class="kpi"><b>${r === null ? "-" : r + "%"}</b><span>נוכחות</span></div><div class="kpi"><b>${starsOf(pid)}</b><span>מצטיין חודש</span></div><div class="kpi"><b>${bs.length}</b><span>תגיות</span></div></div></div>
+    ${p.startDate || p.perWeek ? `<p class="sub" style="margin:0 0 10px">${p.startDate ? `מתאמן מאז ${fmtDate(p.startDate)}` : ""}${p.startDate && p.perWeek ? " · " : ""}${p.perWeek ? `${p.perWeek} פעמים בשבוע` : ""}</p>` : ""}
     ${p.health ? `<section class="health"><h3>${ICON.alert} רגישות בריאותית</h3><div>${esc(p.health)}</div></section>` : ""}
     <section class="card statcard"><h3>כישורים</h3>${skillRows || `<p class="sub" style="margin:0 0 4px">עוד אין הערכה. דרגו כל כישור מ-1 עד 5.</p>`}
       <div style="margin:12px 0 4px">${graph()}</div><button class="btn small ball" data-act="assess" data-id="${pid}">${last ? "הערכה חדשה" : "הערכת כישורים"}</button></section>

@@ -376,3 +376,9 @@ main > .field:first-child { margin-top: 38px; }
 .tp .av .mini { width: 22px; height: 21px; inset-inline-end: -8px; }
 
 .miss { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .miss span { font-size: 13px; font-weight: 700; color: #a15c00; background: #fff1d6; border-radius: 999px; padding: 2px 9px; }
+
+.count { margin: 4px 4px 10px; font-weight: 800; font-size: 17px; color: var(--ink); }
+.foldall { display: flex; gap: 8px; justify-content: flex-end; margin: 0 0 10px; }
+.fold-card .sfold { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: transparent; padding: 0; margin: 0 0 8px; min-height: 36px; font: inherit; font-size: 19px; font-weight: 800; color: var(--ink); text-align: start; cursor: pointer; }
+.fold-card .sfold svg { width: 22px; height: 22px; flex: none; transform: rotate(90deg); transition: transform .2s; color: var(--floor); }
+.fold-card.closed .sfold { margin-bottom: 0; } .fold-card.closed .sfold svg { transform: rotate(180deg); } .fold-card.closed .sbody { display: none; }

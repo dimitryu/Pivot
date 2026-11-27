@@ -1,6 +1,6 @@
 // סטטיסטיקות לקבוצה לפי תקופה: נוכחות, מגמה חודשית, ימי שבוע, תרגילים, תחומים ומצטיינים.
 import { store } from "./store.js";
-import { esc, FOCUS, STAGES, STAGE, monthKey, monthLabel, weekdayOf, DAY_SHORT, todayStr } from "./lib.js";
+import { esc, ICON, FOCUS, STAGES, STAGE, monthKey, monthLabel, weekdayOf, DAY_SHORT, todayStr } from "./lib.js";
 
 export const PERIODS = [["all", "כל הזמן"], ["month", "החודש"], ["90", "3 חודשים"], ["30", "30 ימים"]];
 
@@ -67,8 +67,13 @@ export function renderStats(gid, period) {
   awards.forEach((a) => (starCount[a.playerId] = (starCount[a.playerId] || 0) + 1));
   const stars = Object.entries(starCount).sort((a, b) => b[1] - a[1]).map(([id, n]) => [players.find((p) => p.id === id)?.name, n]).filter(([nm]) => nm);
 
-  const card = (title, body) => `<section class="card statcard"><h3>${title}</h3>${body}</section>`;
-  return chips + `
+  const closed = new Set(JSON.parse(localStorage.getItem("pivot.stat.closed") || "[]"));
+  const card = (title, body) => `<section class="card statcard fold-card${closed.has(title) ? " closed" : ""}" data-k="${esc(title)}"><button class="sfold" data-act="stat-fold" aria-label="פתיחה או סגירה">${title}${ICON.chev}</button><div class="sbody">${body}</div></section>`;
+  const monthKeyNow = todayStr().slice(0, 7), thisMonth = store.all("sessions").filter((x) => x.groupId === gid && x.date.startsWith(monthKeyNow));
+  const monthKids = thisMonth.reduce((a, x) => a + presentOf(x), 0);
+  const pay = card("חישוב תשלום למאמן לחודש", `<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${thisMonth.length}</b><span>אימונים החודש</span></div><div class="kpi"><b>${monthKids}</b><span>הגעות ילדים</span></div></div>
+    <p class="sub" style="margin:0">${esc(monthLabel(monthKeyNow))}. נוסחת התשלום תתווסף בהמשך.</p>`);
+  return chips + `<div class="foldall"><button class="btn small ghost" data-act="stat-all" data-v="open">פתיחת הכול</button><button class="btn small ghost" data-act="stat-all" data-v="close">סגירת הכול</button></div>
     <div class="kpis"><div class="kpi"><b>${all.length}</b><span>אימונים</span></div>
       <div class="kpi"><b>${avgPresent.toFixed(1).replace(".0", "")}</b><span>ילדים בממוצע</span></div>
       <div class="kpi"><b>${Math.round(avgPct)}%</b><span>נוכחות</span></div></div>
@@ -79,9 +84,9 @@ export function renderStats(gid, period) {
     ${card("נוכחות לפי יום בשבוע", wdRows)}
     ${planned ? card("תחומים שתורגלו", focusRows.map(([k, n]) => bar(FOCUS[k] || k, (n / fMax) * 100, n, "var(--win)")).join("")) : ""}
     ${planned ? card("תרגילים נפוצים", topDrills.map(([nm, n]) => bar(esc(nm), (n / topDrills[0][1]) * 100, n + "×", "var(--floor-deep)")).join("")) : ""}
-    ${planned ? card("שלבי האימון", STAGES.map((s) => bar(s.label, ((stageCount[s.k] || 0) / Math.max(...Object.values(stageCount), 1)) * 100, stageCount[s.k] || 0, s.color)).join("")) : ""}
     ${card("איך נבנו האימונים", `<div class="modes">
       <span class="chip">התוכנית שלי: ${modes.mine}</span><span class="chip">הגרלה: ${modes.random}</span>
       ${modes.smart ? `<span class="chip">הצעה חכמה: ${modes.smart}</span>` : ""}<span class="chip">עוזר AI: ${modes.ai}</span><span class="chip">בלי תוכנית: ${modes.none}</span></div>`)}
-    ${stars.length ? card("מצטייני החודש", stars.map(([nm, n]) => bar(esc(nm), 100, "⭐".repeat(Math.min(n, 5)) + (n > 5 ? ` ${n}` : ""), "#f2a900")).join("")) : ""}`;
+    ${stars.length ? card("מצטייני החודש", stars.map(([nm, n]) => bar(esc(nm), 100, "⭐".repeat(Math.min(n, 5)) + (n > 5 ? ` ${n}` : ""), "#f2a900")).join("")) : ""}
+    ${pay}`;
 }
