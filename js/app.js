@@ -1,7 +1,7 @@
 import { store } from "./store.js";
 import { SEED_DRILLS } from "./seed.js";
 import { randomPlan, planFromSaved, swapDrill, snapOf, stageMinutes, stageList, emptyStages } from "./planner.js";
-import { renderStats } from "./stats.js";
+import { renderStats, PAY_STATUS } from "./stats.js";
 import { aiBuildPlan, aiKey, setAiKey, aiModel, setAiModel, MODELS } from "./ai.js";
 import {
   $, esc, COLORS, ICON, STAGES, STAGE, FOCUS, DAY_SHORT, courtSVG, jersey, avatar, todayStr, fmtDate, fmtShort, monthLabel,
@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.1.0";
+const VERSION = "3.2.0";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -43,7 +43,8 @@ function hero({ title, sub = "", back = "", compact = false, tabs = "" }) {
 }
 function nav(active) {
   const item = (k, label, go) => `<button data-go="${go}" ${active === k ? 'aria-current="page"' : ""}>${ICON[k]}<span>${label}</span></button>`;
-  return `<nav class="nav">${courtSVG(true)}${item("groups", "קבוצות", "#/")}${item("plans", "תוכניות", "#/plans")}${item("settings", "הגדרות", "#/settings")}</nav>`;
+  const gs = store.all("groups"), groupsGo = gs.length === 1 ? `#/g/${gs[0].id}` : "#/";
+  return `<nav class="nav">${courtSVG(true)}${item("groups", "קבוצות", groupsGo)}${item("plans", "תוכניות", "#/plans")}${item("settings", "הגדרות", "#/settings")}</nav>`;
 }
 const page = (heroHtml, body, active) => { app.innerHTML = `${heroHtml}<main class="wrap">${body}</main>${nav(active)}`; };
 const tabsBar = (items, cur) => `<div class="tabs" role="tablist">${items.map(([k, l, h]) => `<button role="tab" aria-selected="${cur === k}" data-go="${h}">${l}</button>`).join("")}</div>`;
@@ -90,7 +91,7 @@ function viewHome() {
 }
 
 /* ---------- קבוצה ---------- */
-let statsPeriod = "all", starMonth = lastMonths(1)[0];
+let statsRange = { from: "", to: "" }, payMonth = todayStr().slice(0, 7), statsPeriod = "all", starMonth = lastMonths(1)[0];
 function viewGroup(gid, tab = "players") {
   live = true;
   const g = store.get("groups", gid); if (!g) return go("#/");
@@ -101,7 +102,7 @@ function viewGroup(gid, tab = "players") {
   if (tab === "players") {
     const rows = players.map((p) => { const r = rate(p.id, gid), st = starsOf(p.id);
       return `<button class="row" data-go="#/p/${p.id}">${avatar(p, groupColor(g))}
-        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}${p.perWeek ? ` · ${p.perWeek} בשבוע` : ""}</div>${missingChips(p)}</span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
+        <span class="grow"><div class="name">${esc(p.name)}${p.health ? ` <span class="hl inline" title="רגישות בריאותית">${ICON.alert}</span>` : ""}</div><div class="sub">${r === null ? esc(p.parentName || "") : `הגיע ב-${r}% מהאימונים`}${` · ${p.perWeek || 2} בשבוע`}</div>${missingChips(p)}</span>${st ? `<span class="chip">${ICON.star} ${st}</span>` : ""}</button>`; }).join("");
     body = `${birthdayCard(g, players)}${newSession}${players.length ? `<p class="count">${players.length === 1 ? "ילד אחד" : players.length + " ילדים"} בקבוצה</p>` : ""}${players.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>אין עדיין ילדים בקבוצה</h3><p>הוסיפו את הילדים כדי לסמן נוכחות.</p></div>`}
       <button class="btn ghost block" data-act="player-new" style="margin-top:14px">${ICON.plus} הוספת ילד</button>
       <div class="two" style="margin-top:22px"><button class="btn small ghost" data-act="group-ics">${ICON.cal} ימי האימון ליומן</button><button class="btn small ghost" data-act="group-edit">עריכת פרטי הקבוצה</button></div>`;
@@ -113,7 +114,7 @@ function viewGroup(gid, tab = "players") {
         <div class="sub">${presentCount(s)} מתוך ${s.total || players.length} ילדים${pl ? ` · ${esc(pl.title)} · ${stageMinutes(pl)} דק׳` : ""}</div>${n ? `<div class="sub" style="margin-top:2px">${n}</div>` : ""}</span></button>`; }).join("");
     body = `${newSession}${sessions.length ? `<div class="card">${rows}</div>` : `<div class="card empty"><h3>עוד לא היו אימונים</h3><p>לחצו על "אימון חדש" בתחילת האימון הבא.</p></div>`}`;
   } else if (tab === "stars") body = starsView(g, players);
-  else body = renderStats(gid, statsPeriod);
+  else body = renderStats(gid, statsPeriod, statsRange, payMonth);
   page(hero({ title: g.name, sub: [g.ages, daysLabel(g), g.place].filter(Boolean).join(" · "), back: "#/", compact: true, tabs }), body, "groups");
 }
 
@@ -381,7 +382,7 @@ function playerForm(gid, p = {}) {
       <div class="field"><label for="pm">מספר חולצה</label><input id="pm" type="number" inputmode="numeric" min="0" max="99" value="${esc(p.number)}" placeholder="ללא"></div></div>
       <div class="field"><label for="pb">תאריך לידה</label><input id="pb" type="date" value="${esc(p.birth)}"></div>
       <div class="two"><div class="field"><label for="psd">התחיל להתאמן ב-</label><input id="psd" type="date" value="${esc(p.id ? p.startDate : p.startDate || todayStr())}"></div>
-      <div class="field"><label for="ppw">פעמים בשבוע</label><select id="ppw"><option value="">לא צוין</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(p.perWeek) === String(n) ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
+      <div class="field"><label for="ppw">פעמים בשבוע</label><select id="ppw">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(p.perWeek || 2) === String(n) ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
       <div class="two"><div class="field"><label for="pr">שם ההורה</label><input id="pr" value="${esc(p.parentName)}"></div>
       <div class="field"><label for="pp">טלפון ההורה</label><input id="pp" type="tel" inputmode="tel" value="${esc(p.parentPhone)}" placeholder="050-0000000"></div></div>
       <div class="field"><label for="ph">בריאות ורגישויות</label><textarea id="ph" placeholder="אסתמה, אלרגיה, תרופות">${esc(p.health)}</textarea></div>
@@ -503,6 +504,7 @@ const actions = {
     closed ? set.add(sec.dataset.k) : set.delete(sec.dataset.k); localStorage.setItem("pivot.stat.closed", JSON.stringify([...set])); },
   "stat-all": (el) => { const close = el.dataset.v === "close", secs = [...document.querySelectorAll(".fold-card")];
     secs.forEach((x) => x.classList.toggle("closed", close)); localStorage.setItem("pivot.stat.closed", JSON.stringify(close ? secs.map((x) => x.dataset.k) : [])); },
+  "pay-month": (el) => { const [y, m] = payMonth.split("-").map(Number), d = new Date(y, m - 1 + +el.dataset.d, 1); payMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; route(); },
   "timer-run": () => runTimer(stepsOf(planOf(curSession()))),
   "timer-quick": () => quickTimerSheet(),
   teams: () => { const s = curSession(), g = store.get("groups", s.groupId), all = playersOf(s.groupId), here = all.filter((p) => s.attendance?.[p.id]); teamsSheet(here.length >= 2 ? here : all, groupColor(g)); },
@@ -533,12 +535,18 @@ const actions = {
   "ws-leave": async (el) => { if (!confirm("לעזוב את המרחב המשותף?")) return; if (store.workspace.base === el.dataset.base) await store.switchWorkspace(store.user.uid); await store.share.leave(el.dataset.base); fillShareBox(); }
 };
 
+document.body.insertAdjacentHTML("beforeend", `<div class="ver" aria-hidden="true">v${VERSION}</div>`);
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-close]")) return closeSheet();
   const g = e.target.closest("[data-go]"); if (g) return go(g.dataset.go);
   const a = e.target.closest("[data-act]"); if (a) actions[a.dataset.act]?.(a);
 });
 document.addEventListener("change", async (e) => {
+  const ac = e.target.dataset.actChange;
+  if (ac === "stat-from" || ac === "stat-to") { statsRange = { ...statsRange, [ac === "stat-from" ? "from" : "to"]: e.target.value }; return route(); }
+  if (ac === "pay-status" || ac === "pay-pct") { const g = store.get("groups", curGid()); if (!g) return;
+    const next = ac === "pay-status" ? { payStatus: e.target.value, payPct: PAY_STATUS[e.target.value]?.pct ?? "" } : { payPct: e.target.value === "" ? "" : +e.target.value };
+    await store.save("groups", { ...g, ...next }); return; }
   if (e.target.dataset.actChange === "star-month") { starMonth = e.target.value; return route(); }
   if (e.target.id !== "file" || !e.target.files[0]) return;
   try { await store.importAll(JSON.parse(await e.target.files[0].text())); toast("הנתונים שוחזרו"); }
@@ -548,7 +556,7 @@ document.addEventListener("change", async (e) => {
 
 /* ---------- יכולות חדשות: התראת בריאות, תזכורות, משחקים, פרופיל ילד, שיתוף ---------- */
 function missingChips(p) {
-  const m = [!p.birth && "תאריך לידה", !p.startDate && "תאריך התחלה", !p.perWeek && "פעמים בשבוע", !p.parentName && "שם הורה", !p.parentPhone && "טלפון הורה"].filter(Boolean);
+  const m = [!p.birth && "תאריך לידה", !p.startDate && "תאריך התחלה", !p.parentName && "שם הורה", !p.parentPhone && "טלפון הורה"].filter(Boolean);
   return m.length ? `<div class="miss">${m.map((x) => `<span>חסר: ${x}</span>`).join("")}</div>` : "";
 }
 function healthBanner(players) {
@@ -618,7 +626,7 @@ function viewPlayer(pid) {
     return `<div class="skill"><span>${FOCUS[k]}</span><span class="dots">${[1, 2, 3, 4, 5].map((v) => `<i class="${v <= last.skills[k] ? "on" : ""}" style="--c:${col}"></i>`).join("")}</span><small class="${d > 0 ? "up" : d < 0 ? "down" : ""}">${d > 0 ? "+" + d : d < 0 ? d : ""}</small></div>`; }).join("") : "";
   page(hero({ title: p.name, sub: [g?.name, age != null ? "גיל " + age : ""].filter(Boolean).join(" · "), back: `#/g/${p.groupId}`, compact: true }),
     `<div class="pcard">${avatar(p, col)}<div class="kpis" style="margin:0;flex:1"><div class="kpi"><b>${r === null ? "-" : r + "%"}</b><span>נוכחות</span></div><div class="kpi"><b>${starsOf(pid)}</b><span>מצטיין חודש</span></div><div class="kpi"><b>${bs.length}</b><span>תגיות</span></div></div></div>
-    ${p.startDate || p.perWeek ? `<p class="sub" style="margin:0 0 10px">${p.startDate ? `מתאמן מאז ${fmtDate(p.startDate)}` : ""}${p.startDate && p.perWeek ? " · " : ""}${p.perWeek ? `${p.perWeek} פעמים בשבוע` : ""}</p>` : ""}
+    <p class="sub" style="margin:0 0 10px">${p.startDate ? `מתאמן מאז ${fmtDate(p.startDate)} · ` : ""}${p.perWeek || 2} פעמים בשבוע</p>
     ${p.health ? `<section class="health"><h3>${ICON.alert} רגישות בריאותית</h3><div>${esc(p.health)}</div></section>` : ""}
     <section class="card statcard"><h3>כישורים</h3>${skillRows || `<p class="sub" style="margin:0 0 4px">עוד אין הערכה. דרגו כל כישור מ-1 עד 5.</p>`}
       <div style="margin:12px 0 4px">${graph()}</div><button class="btn small ball" data-act="assess" data-id="${pid}">${last ? "הערכה חדשה" : "הערכת כישורים"}</button></section>
