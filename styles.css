@@ -398,3 +398,9 @@ main > .field:first-child { margin-top: 38px; }
 .dwrap:focus-within { border-color: var(--floor); } .dtxt { display: block; line-height: 24px; direction: ltr; text-align: right; } .dtxt.empty { color: #9aa6b8; }
 .field .dwrap input[type=date] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; opacity: 0; padding: 0; border: 0; cursor: pointer; }
 .paynav { justify-content: center; gap: 22px; } .paynav .btn:first-child svg { transform: rotate(-90deg); } .paynav .btn:last-child svg { transform: rotate(90deg); }
+
+/* שדות קטנים יותר */
+.field { gap: 4px; margin-bottom: 10px; } .field label { font-size: 14px; }
+.field input, .field select, .field textarea { padding: 8px 12px; min-height: 42px; font-size: 15px; border-radius: 10px; }
+.field textarea { min-height: 64px; }
+.dwrap { padding: 8px 12px; min-height: 42px; border-radius: 10px; } .dtxt { padding: 0; margin: 0; line-height: 22px; font-size: 15px; }

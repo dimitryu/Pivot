@@ -14,7 +14,7 @@ import {
 } from "./features.js";
 
 const app = $("#app");
-const VERSION = "3.2.4";
+const VERSION = "3.2.5";
 
 /* ---------- נתונים נגזרים ---------- */
 const groupColor = (g) => g?.color || COLORS[0];
@@ -667,6 +667,11 @@ async function afterLogin() {
   if (!store.all("drills").length && !localStorage.getItem(key)) { for (const d of SEED_DRILLS) store.save("drills", { ...d }); localStorage.setItem(key, "1"); }
   await store.upgradeLegacy();
 }
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  // גרסה חדשה של האפליקציה נטענת מיד: כשעובד השירות החדש משתלט, הדף נטען מחדש פעם אחת
+  const hadCtl = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadCtl && !reloaded) { reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then((r) => r.update()).catch(() => {});
+}
 store.start(async (u) => { if (u) await afterLogin(); ready = true; route(); })
   .catch((e) => { app.innerHTML = `<div class="login"><h1>אופס</h1><p>לא הצלחנו לטעון. בדקו חיבור לאינטרנט ורעננו.</p><small>${esc(e.message)}</small></div>`; });

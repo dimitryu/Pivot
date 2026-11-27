@@ -1,5 +1,5 @@
 // העלו את המספר בכל עדכון כדי שמכשירים מותקנים יטענו את הקבצים החדשים.
-const VERSION = "pivot-v18";
+const VERSION = "pivot-v19";
 const SHELL = ["./", "index.html", "styles.css", "manifest.json", "js/app.js", "js/store.js", "js/lib.js", "js/planner.js", "js/stats.js", "js/ai.js", "js/features.js", "js/seed.js", "js/firebase-config.js", "icons/board-v.svg", "icons/board-h.svg", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,7 +18,7 @@ self.addEventListener("fetch", (e) => {
   if (/firestore\.googleapis|identitytoolkit|securetoken|googleapis\.com\/google\.firestore|accounts\.google|apis\.google/.test(url.host + url.pathname)) return;
   // רשת קודם, ואם אין חיבור אז מהמטמון. כך עדכונים מגיעים מיד כשיש אינטרנט.
   e.respondWith(
-    fetch(req).then((res) => {
+    fetch(req, { cache: "no-cache" }).then((res) => {
       if (res.ok || res.type === "opaque") { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req).then((r) => r || caches.match("index.html")))
